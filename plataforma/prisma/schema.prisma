@@ -871,3 +871,14 @@ model Mensagem {
 
   @@index([conversaId, criadoEm])
 }
+
+// ─────────────────────────────── Integrações (segredos configurados pelo painel) ───────────────────────────────
+
+/// Credenciais de integrações (ex.: chave da Anthropic), sempre cifradas com APP_MASTER_KEY
+model Integracao {
+  chave         String   @id
+  valorCifrado  String
+  finalVisivel  String
+  atualizadoPor String?
+  atualizadoEm  DateTime @updatedAt
+}

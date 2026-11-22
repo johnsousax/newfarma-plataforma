@@ -4,6 +4,7 @@ import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import { FARMACIA } from '@/lib/farmacia';
 import { instrucoesSistema } from './regras';
+import { obterSegredo } from '../integracoes';
 
 // Modelo e esforço do assistente. Opus 5.5 lê bem fotos de embalagens e letra de receita.
 const MODELO = process.env.ASSISTENTE_MODELO || 'claude-opus-5-5';
@@ -32,11 +33,28 @@ export type Imagem = { mime: 'image/jpeg' | 'image/png' | 'image/webp'; base64: 
 
 export class AssistenteIndisponivel extends Error {}
 
-let cliente: Anthropic | null = null;
-function api() {
-  // Credenciais: ANTHROPIC_API_KEY (ou perfil do `ant auth login`) resolvidas pelo SDK
-  cliente ??= new Anthropic({ timeout: 60_000, maxRetries: 2 });
-  return cliente;
+let cliente: { chave: string; api: Anthropic } | null = null;
+/** A chave vem do painel (Admin › Integrações, cifrada no banco) ou da variável ANTHROPIC_API_KEY. */
+async function api() {
+  const chave = await obterSegredo('ANTHROPIC_API_KEY');
+  if (!chave) throw new AssistenteIndisponivel('Chave da Anthropic não configurada (Admin › Integrações)');
+  if (cliente?.chave !== chave) cliente = { chave, api: new Anthropic({ apiKey: chave, timeout: 60_000, maxRetries: 2 }) };
+  return cliente.api;
+}
+
+/** Valida a chave sem gerar custo (consulta os dados do modelo). */
+export async function testarChave(chave: string) {
+  try {
+    const m = await new Anthropic({ apiKey: chave, timeout: 15_000, maxRetries: 0 }).models.retrieve(MODELO);
+    return { ok: true as const, modelo: m.display_name ?? m.id };
+  } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError) return { ok: false as const, erro: 'Chave inválida ou revogada.' };
+    if (e instanceof Anthropic.PermissionDeniedError) return { ok: false as const, erro: 'A chave não tem permissão para este modelo.' };
+    if (e instanceof Anthropic.NotFoundError) return { ok: false as const, erro: `Modelo ${MODELO} indisponível para esta conta.` };
+    if (e instanceof Anthropic.APIConnectionError) return { ok: false as const, erro: 'Sem conexão com a Anthropic.' };
+    if (e instanceof Anthropic.APIError) return { ok: false as const, erro: `Erro da API (${e.status}).` };
+    throw e;
+  }
 }
 
 /** Uma chamada ao modelo, com resposta estruturada e validada pelo schema. */
@@ -52,7 +70,7 @@ export async function consultarIA(historico: Historico, pergunta: string, imagem
 
   let r;
   try {
-    r = await api().beta.messages.parse({
+    r = await (await api()).beta.messages.parse({
       model: MODELO,
       max_tokens: 4000,
       system: [{ type: 'text', text: instrucoesSistema(FARMACIA.nome), cache_control: { type: 'ephemeral' } }],
@@ -63,6 +81,7 @@ export async function consultarIA(historico: Historico, pergunta: string, imagem
       fallbacks: 'default',
     });
   } catch (e) {
+    if (e instanceof AssistenteIndisponivel) throw e;
     if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) throw new AssistenteIndisponivel('Credencial da API inválida ou ausente');
     if (e instanceof Anthropic.RateLimitError) throw new AssistenteIndisponivel('Limite de uso da API atingido');
     if (e instanceof Anthropic.APIConnectionError) throw new AssistenteIndisponivel('Sem conexão com a API');

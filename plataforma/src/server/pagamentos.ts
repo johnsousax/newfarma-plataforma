@@ -2,6 +2,7 @@ import 'server-only';
 import crypto from 'node:crypto';
 import { ErroNegocio } from './erros';
 import { parcelasPara } from '@/lib/farmacia';
+import { pagamentosSimulados } from './integracoes';
 import type { Tx } from './db';
 import type { MetodoPagamento } from '@/generated/prisma/enums';
 
@@ -39,6 +40,7 @@ export function validarDadosPagamento(d: unknown): DadosPagamento {
 export const maxParcelas = parcelasPara;
 
 export async function cobrar(tx: Tx, pedido: { id: string; total: number }, d: DadosPagamento) {
+  if (!pagamentosSimulados()) throw new ErroNegocio('O pagamento online está em implantação. Finalize sua compra pelo WhatsApp ou na loja.');
   const ativo = await tx.pagamento.findFirst({ where: { pedidoId: pedido.id, status: { in: ['PENDENTE', 'APROVADO'] } } });
   if (ativo?.status === 'APROVADO') throw new ErroNegocio('Este pedido já está pago.');
   if (ativo?.status === 'PENDENTE') {

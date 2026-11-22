@@ -490,3 +490,29 @@ export async function tornarFotoPrincipal(id: string) {
     refresh();
   });
 }
+
+// ─────────────── Integrações (chaves guardadas cifradas no banco) ───────────────
+
+export async function salvarChaveAnthropic(_: unknown, form: FormData) {
+  return executar(async () => {
+    const u = await exigirPermissao('lojas');
+    const { INTEGRACOES, salvarSegredo } = await import('@/server/integracoes');
+    const { testarChave } = await import('@/server/assistente/ia');
+    const chave = String(form.get('chave') ?? '').trim();
+    if (!INTEGRACOES.ANTHROPIC_API_KEY.formato.test(chave)) throw new ErroNegocio('Cole a chave completa, que começa com "sk-ant-".');
+    const t = await testarChave(chave);
+    if (!t.ok) throw new ErroNegocio(`A Anthropic recusou a chave: ${t.erro}`);
+    await salvarSegredo('ANTHROPIC_API_KEY', chave, u.id);
+    refresh();
+    return t.modelo;
+  }, 'Chave validada e salva. O assistente já está ativo.');
+}
+
+export async function removerChaveAnthropic() {
+  return executar(async () => {
+    const u = await exigirPermissao('lojas');
+    const { removerSegredo } = await import('@/server/integracoes');
+    await removerSegredo('ANTHROPIC_API_KEY', u.id);
+    refresh();
+  }, 'Chave removida. As dúvidas voltam a ir direto para o farmacêutico.');
+}

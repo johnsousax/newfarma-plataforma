@@ -9,7 +9,6 @@ import { carrinhoAtual } from '@/server/carrinho';
 import { criarPedido, pagarPedido, cancelarPedido, confirmarPix } from '@/server/pedidos';
 import { validarDadosPagamento } from '@/server/pagamentos';
 import { enviarReceita } from '@/server/receitas';
-import { config } from '@/server/config';
 
 const checkoutSchema = z.object({
   modalidade: z.enum(['ENTREGA_PADRAO', 'ENTREGA_EXPRESSA', 'RETIRADA']),
@@ -70,7 +69,8 @@ export async function cancelarPedidoAcao(pedidoId: string) {
 /** Somente fora de produção: simula o banco confirmando o PIX (no real, webhook do PSP). */
 export async function simularPixAcao(pagamentoId: string) {
   return executar(async () => {
-    if (config.producao) throw new ErroNegocio('Indisponível em produção.', 404);
+    const { pagamentosSimulados } = await import('@/server/integracoes');
+    if (!pagamentosSimulados()) throw new ErroNegocio('Indisponível em produção.', 404);
     const u = await exigirUsuario();
     const pg = await db.pagamento.findFirst({ where: { id: z.string().uuid().parse(pagamentoId), pedido: { usuarioId: u.id } } });
     if (!pg) throw new ErroNegocio('Pagamento não encontrado.', 404);

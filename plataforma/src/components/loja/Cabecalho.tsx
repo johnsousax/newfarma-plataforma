@@ -98,6 +98,12 @@ async function MenuMobile() {
 
 export function Cabecalho() {
   return (
+    <>
+    {process.env.PAGAMENTOS_SIMULADOS === '1' && (
+      <div className="bg-oferta-600 px-4 py-1.5 text-center text-xs font-bold text-white">
+        🧪 Loja nova em fase de testes: os pagamentos são simulados e os produtos e preços são de demonstração. Para comprar de verdade, fale com a farmácia.
+      </div>
+    )}
     <header className="sticky top-0 z-30 border-b border-amarelo-100 bg-white/95 backdrop-blur">
       <div className="bg-amarelo-400 text-xs font-semibold text-marca-700">
         <div className="container-loja flex items-center justify-between gap-4 py-1.5">
@@ -116,5 +122,6 @@ export function Cabecalho() {
       </div>
       <Suspense fallback={<div className="hidden h-[45px] border-t border-slate-100 md:block" />}><NavCategorias /></Suspense>
     </header>
+    </>
   );
 }

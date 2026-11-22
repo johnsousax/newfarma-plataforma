@@ -27,6 +27,7 @@ const ITENS: (Omit<ItemMenu, 'contador'> & { perm: Permissao })[] = [
   { href: '/admin/anvisa', icone: '🏛️', rotulo: 'ANVISA / SNGPC', grupo: 'Gestão', perm: 'anvisa' },
   { href: '/admin/equipe', icone: '👥', rotulo: 'Equipe', grupo: 'Administração', perm: 'equipe' },
   { href: '/admin/lojas', icone: '🏬', rotulo: 'Lojas', grupo: 'Administração', perm: 'lojas' },
+  { href: '/admin/integracoes', icone: '🔌', rotulo: 'Integrações', grupo: 'Administração', perm: 'lojas' },
   { href: '/admin/auditoria', icone: '🛡️', rotulo: 'Auditoria', grupo: 'Administração', perm: 'auditoria' },
 ];
 

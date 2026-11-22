@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { db } from '@/server/db';
 import { exigirLogin } from '@/server/auth';
-import { config } from '@/server/config';
+import { pagamentosSimulados } from '@/server/integracoes';
 import { Aviso, Badge, SeloClassificacao, BotaoLink } from '@/components/ui';
 import { PagarPedido, CodigoPix, EnviarReceita, CancelarPedido, ComprarNovamente } from '@/components/checkout/AcoesPedido';
 import { EsqueletoPagina } from '@/components/loja/Esqueletos';
@@ -88,7 +88,7 @@ async function Conteudo({ params, searchParams }: PageProps<'/pedido/[numero]'>)
             <section className="cartao space-y-3 p-5">
               <h2 className="text-lg font-bold">💳 Pagamento</h2>
               {pixPendente ? (
-                <CodigoPix pagamentoId={pixPendente.id} codigo={pixPendente.pixCopiaECola ?? ''} expiraEm={pixPendente.pixExpiraEm!.toISOString()} dev={!config.producao} />
+                <CodigoPix pagamentoId={pixPendente.id} codigo={pixPendente.pixCopiaECola ?? ''} expiraEm={pixPendente.pixExpiraEm!.toISOString()} dev={pagamentosSimulados()} />
               ) : <PagarPedido pedidoId={p.id} total={p.total} />}
             </section>
           )}

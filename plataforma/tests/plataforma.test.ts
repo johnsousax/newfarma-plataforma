@@ -248,18 +248,18 @@ describe('preços, cupons e frete', () => {
     expect(r.total).toBe(r.subtotal - r.descontoPromocoes);
   });
 
-  it('frete: expressa e padrão local para CEP coberto; grátis acima do mínimo; sem expressa fora da área', async () => {
+  it('frete por bairro: taxa da zona, teto, frete grátis, pedido mínimo e bairro não atendido', async () => {
     const loja = await lojaPaulista();
     const p = await produto({ nome: 'Creme Dental Branqueador' });
     await definirEstoque(p.id, loja.id, 10);
-    const local = await cotar('01310-200', 2000, [{ produtoId: p.id, quantidade: 1 }]);
-    expect(local.entregas.find((e) => e.modalidade === 'ENTREGA_EXPRESSA')?.disponivel).toBe(true);
-    expect(local.entregas.find((e) => e.modalidade === 'ENTREGA_PADRAO')?.preco).toBe(790);
-    const gratis = await cotar('01310-200', 15000, [{ produtoId: p.id, quantidade: 1 }]);
-    expect(gratis.entregas.find((e) => e.modalidade === 'ENTREGA_PADRAO')?.preco).toBe(0);
-    const longe = await cotar('69000-000', 2000, [{ produtoId: p.id, quantidade: 1 }]);
-    expect(longe.entregas.find((e) => e.modalidade === 'ENTREGA_EXPRESSA')).toBeUndefined();
-    expect(longe.entregas.find((e) => e.modalidade === 'ENTREGA_PADRAO')).toMatchObject({ disponivel: false, motivo: expect.stringMatching(/não entregamos/) });
+    await db.zonaEntrega.upsert({ where: { lojaId_bairroBusca: { lojaId: loja.id, bairroBusca: 'bela vista' } }, create: { lojaId: loja.id, bairro: 'Bela Vista', bairroBusca: 'bela vista', taxa: 600, prazoMinutos: 40 }, update: { taxa: 600, prazoMinutos: 40, ativo: true } });
+    const itens = [{ produtoId: p.id, quantidade: 1 }];
+    const ok = await cotar({ bairro: 'BELA VISTA' }, 2000, itens);
+    expect(ok.entregas[0]).toMatchObject({ disponivel: true, preco: 600, prazo: 'em até 40 min' });
+    expect((await cotar({ bairro: 'Bela Vista' }, 15000, itens)).entregas[0].preco).toBe(0);
+    expect((await cotar({ bairro: 'Bela Vista' }, 500, itens)).entregas[0]).toMatchObject({ disponivel: false, motivo: expect.stringMatching(/mínimo/) });
+    expect((await cotar({ bairro: 'Bairro Distante' }, 2000, itens)).entregas[0]).toMatchObject({ disponivel: false, motivo: expect.stringMatching(/não entregamos/) });
+    expect(ok.retiradas.some((r) => r.disponivel)).toBe(true);
   });
 });
 

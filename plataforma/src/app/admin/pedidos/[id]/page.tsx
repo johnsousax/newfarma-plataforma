@@ -1,3 +1,4 @@
+import { Icone } from '@/components/icones';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
@@ -7,7 +8,7 @@ import { paginaAdmin, lojaDoUsuario } from '@/server/auth';
 import { proximosStatus, alocacoesDe } from '@/server/pedidos';
 import { Badge, Esqueleto, SeloClassificacao, Aviso } from '@/components/ui';
 import { BotaoAcao } from '@/components/admin/Acoes';
-import { avancarPedido, cancelarPedidoAdmin } from '@/app/acoes/admin';
+import { gerarNotaAcao, avancarPedido, cancelarPedidoAdmin } from '@/app/acoes/admin';
 import { STATUS_PEDIDO, MODALIDADE, METODO_PAGAMENTO, REGRAS } from '@/lib/dominio';
 import { brl, dataHora, data, telefone } from '@/lib/formato';
 
@@ -39,6 +40,8 @@ async function Conteudo({ params }: { params: PageProps<'/admin/pedidos/[id]'>['
               {s === 'EM_SEPARACAO' ? 'Iniciar separação' : s === 'SAIU_PARA_ENTREGA' ? 'Despachar' : s === 'PRONTO_PARA_RETIRADA' ? 'Pronto p/ retirada' : 'Marcar entregue'}
             </BotaoAcao>
           ))}
+          <a href={`/imprimir/pedido/${p.id}`} target="_blank" className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold ring-1 ring-slate-200"><Icone nome="impressora" className="h-4 w-4" />Imprimir</a>
+          {!['AGUARDANDO_RECEITA', 'AGUARDANDO_PAGAMENTO', 'CANCELADO'].includes(p.status) && <BotaoAcao tamanho="md" acao={gerarNotaAcao.bind(null, p.id)}>Gerar NFC-e</BotaoAcao>}
           {['AGUARDANDO_RECEITA', 'AGUARDANDO_PAGAMENTO', 'PAGO'].includes(p.status) && (
             <BotaoAcao variante="perigo" tamanho="md" pedirTexto="Motivo do cancelamento" acao={async (m) => { 'use server'; return cancelarPedidoAdmin(p.id, m ?? ''); }}>Cancelar</BotaoAcao>
           )}

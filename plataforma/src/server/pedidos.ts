@@ -37,17 +37,17 @@ export async function criarPedido(usuario: UsuarioSessao, carrinho: CarrinhoComp
   }
 
   let endereco: Prisma.InputJsonValue | undefined;
-  let cep: string | null = null;
+  let destino: { cep: string | null; bairro: string | null } = { cep: null, bairro: null };
   if (d.modalidade !== 'RETIRADA') {
     const e = d.enderecoId ? await db.endereco.findFirst({ where: { id: d.enderecoId, usuarioId: usuario.id } }) : null;
     if (!e) throw new ErroNegocio('Escolha um endereço de entrega.');
-    cep = e.cep;
+    destino = { cep: e.cep, bairro: e.bairro };
     endereco = { apelido: e.apelido, destinatario: e.destinatario, cep: e.cep, logradouro: e.logradouro, numero: e.numero, complemento: e.complemento, bairro: e.bairro, cidade: e.cidade, uf: e.uf };
   }
 
   const itensQtd = carrinho.itens.map((i) => ({ produtoId: i.produtoId, quantidade: i.quantidade }));
   const previo = await resumir(carrinho, { usuarioId: usuario.id });
-  const cotacao = await cotar(cep, previo.subtotal - previo.descontoPromocoes - previo.descontoCupom, itensQtd);
+  const cotacao = await cotar(destino, previo.subtotal - previo.descontoPromocoes - previo.descontoCupom, itensQtd);
   const opcao = d.modalidade === 'RETIRADA'
     ? cotacao.retiradas.find((r) => r.lojaId === d.lojaId)
     : cotacao.entregas.find((e) => e.modalidade === d.modalidade);
@@ -239,3 +239,16 @@ export async function expirarPagamentosPendentes() {
 }
 
 export const alocacoesDe = (j: Prisma.JsonValue) => (Array.isArray(j) ? (j as unknown as Alocacao[]) : []);
+
+/** Entrega confirmada pelo motoboy (link do entregador, sem login). */
+export async function confirmarEntregaMotoboy(pedidoId: string, motoboyId: string) {
+  return db.$transaction(async (tx) => {
+    const pedido = await tx.pedido.findUnique({ where: { id: pedidoId } });
+    if (!pedido || pedido.motoboyId !== motoboyId) throw new ErroNegocio('Pedido não está com você.', 404);
+    if (pedido.status !== 'SAIU_PARA_ENTREGA') throw new ErroNegocio('Este pedido não está em rota.', 409);
+    if (pedido.usuarioId) await creditarPontos(tx, pedido.usuarioId, pedido.id, pedido.numero, pedido.total - pedido.frete);
+    await tx.pedido.update({ where: { id: pedido.id }, data: { status: 'ENTREGUE', entregueEm: new Date() } });
+    await evento(tx, pedido.id, 'ENTREGUE', STATUS_PEDIDO.ENTREGUE.cliente, null);
+    await auditar('pedido.entregue_motoboy', { alvo: pedido.id, detalhes: { motoboyId } }, tx);
+  });
+}

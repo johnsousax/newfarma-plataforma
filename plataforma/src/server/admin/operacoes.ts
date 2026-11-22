@@ -176,5 +176,5 @@ export async function venderBalcao(u: UsuarioSessao, d: { itens: ItemPdv[]; meto
     await auditar('pdv.venda', { usuarioId: u.id, alvo: ped.id, detalhes: { numero: ped.numero, total, metodo: d.metodo } }, tx);
     return { ...ped, troco: pg.troco };
   }, { timeout: 20_000 });
-  return { numero: pedido.numero, total, troco: pedido.troco ?? 0, cliente: cliente?.nome ?? null };
+  return { id: pedido.id, numero: pedido.numero, total, troco: pedido.troco ?? 0, cliente: cliente?.nome ?? null };
 }

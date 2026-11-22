@@ -115,7 +115,7 @@ export async function simularCheckout(entrada: unknown) {
     const end = d.enderecoId ? await db.endereco.findFirst({ where: { id: d.enderecoId, usuarioId: u.id } }) : null;
     const saldo = (await db.usuario.findUniqueOrThrow({ where: { id: u.id }, select: { pontos: true } })).pontos;
     const base = await resumir(carrinho, { usuarioId: u.id });
-    const cot = await cotar(end?.cep ?? null, base.subtotal - base.descontoPromocoes - base.descontoCupom, carrinho.itens.map((i) => ({ produtoId: i.produtoId, quantidade: i.quantidade })));
+    const cot = await cotar({ cep: end?.cep ?? null, bairro: end?.bairro ?? null }, base.subtotal - base.descontoPromocoes - base.descontoCupom, carrinho.itens.map((i) => ({ produtoId: i.produtoId, quantidade: i.quantidade })));
     const opcao = d.modalidade === 'RETIRADA' ? cot.retiradas.find((r) => r.lojaId === d.lojaId) : cot.entregas.find((e) => e.modalidade === d.modalidade && e.disponivel);
     const r = await resumir(carrinho, { usuarioId: u.id, frete: opcao?.preco ?? 0, pontos: d.pontos ?? 0, saldoPontos: saldo });
     const fmt = (o: (typeof cot.entregas)[number]) => ({ modalidade: o.modalidade, rotulo: o.rotulo, prazo: o.prazo, preco: r.freteGratis ? 0 : o.preco, disponivel: o.disponivel, motivo: o.motivo ?? null, lojaId: o.lojaId, lojaNome: o.lojaNome });

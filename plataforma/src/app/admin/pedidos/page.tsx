@@ -1,3 +1,5 @@
+import { ImpressaoAutomatica } from '@/components/impressao/Impressao';
+import { Icone } from '@/components/icones';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { connection } from 'next/server';
@@ -70,5 +72,5 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/admin/pedi
 }
 
 export default function Pedidos(props: PageProps<'/admin/pedidos'>) {
-  return <><TituloPagina titulo="Pedidos" subtitulo="Acompanhe e movimente os pedidos de todos os canais" /><Suspense fallback={<Esqueleto className="h-96" />}><Conteudo searchParams={props.searchParams} /></Suspense></>;
+  return <><TituloPagina titulo="Pedidos" subtitulo="Acompanhe e movimente os pedidos de todos os canais" acoes={<div className="flex flex-wrap gap-2"><ImpressaoAutomatica /><Link href="/admin/compras?aba=assistente" className="inline-flex items-center gap-2 rounded-full bg-marca-600 px-3 py-1.5 text-sm font-semibold text-white"><Icone nome="assistente" className="h-4 w-4" />Assistente de compras</Link><Link href="/admin/entregas" className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm ring-1 ring-slate-200"><Icone nome="entregas" className="h-4 w-4" />Despacho</Link></div>} /><Suspense fallback={<Esqueleto className="h-96" />}><Conteudo searchParams={props.searchParams} /></Suspense></>;
 }

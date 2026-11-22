@@ -1,7 +1,9 @@
 import 'server-only';
 import { db } from './db';
-import { config } from './config';
+import { configuracoes } from './configuracoes';
 import { disponibilidadePorLoja } from './estoque';
+import { normalizar } from '@/lib/texto';
+import { brl } from '@/lib/formato';
 import type { Modalidade } from '@/generated/prisma/enums';
 
 export type OpcaoEntrega = {
@@ -16,85 +18,70 @@ export type OpcaoEntrega = {
   motivo?: string;
 };
 
-const cep5 = (cep: string) => Number(cep.replace(/\D/g, '').slice(0, 5));
 export const cepValido = (cep: string) => /^\d{8}$/.test(cep.replace(/\D/g, ''));
 
-function atende(faixas: string[], cep: string) {
-  const c = cep5(cep);
-  return faixas.some((f) => {
-    const [ini, fim] = f.split('-').map(Number);
-    return c >= ini && c <= (fim || ini);
-  });
-}
-
-/** Tabela por região (1º dígito do CEP) para entregas a partir do centro de distribuição. */
-function tabelaRegional(cep: string) {
-  const d = cep.replace(/\D/g, '')[0];
-  if (d === '0' || d === '1') return { preco: 1290, dias: [2, 4], gratisAcima: config.frete.gratisAcimaDe };
-  if (d === '2' || d === '3') return { preco: 1690, dias: [3, 5], gratisAcima: 19900 };
-  if (d === '7' || d === '8' || d === '9') return { preco: 1990, dias: [4, 7], gratisAcima: 19900 };
-  return { preco: 2490, dias: [5, 9], gratisAcima: 24900 };
-}
-
-function diasUteis(n: number) {
-  const d = new Date();
-  let restam = n;
-  while (restam > 0) {
-    d.setDate(d.getDate() + 1);
-    if (d.getDay() !== 0 && d.getDay() !== 6) restam--;
-  }
-  return d;
+// Bairro a partir do CEP (ViaCEP), com cache em memória de 1 dia
+const cacheCep = new Map<string, { bairro: string | null; ate: number }>();
+export async function bairroDoCep(cep: string): Promise<string | null> {
+  const c = cep.replace(/\D/g, '');
+  if (!cepValido(c)) return null;
+  const k = cacheCep.get(c);
+  if (k && k.ate > Date.now()) return k.bairro;
+  let bairro: string | null = null;
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${c}/json/`, { signal: AbortSignal.timeout(3500) });
+    if (r.ok) { const j = (await r.json()) as { bairro?: string; erro?: boolean }; bairro = j.erro ? null : j.bairro || null; }
+  } catch { /* sem bairro: cai na regra de bairro não cadastrado */ }
+  cacheCep.set(c, { bairro, ate: Date.now() + 86_400_000 });
+  return bairro;
 }
 
 const temTudo = (estoque: Map<string, number> | undefined, itens: { produtoId: string; quantidade: number }[]) =>
   !!estoque && itens.every((i) => (estoque.get(i.produtoId) ?? 0) >= i.quantidade);
 
-/** Cota todas as formas de receber: expressa, padrão e retirada em cada loja. */
-export async function cotar(cep: string | null, subtotal: number, itens: { produtoId: string; quantidade: number }[]) {
-  const lojas = await db.loja.findMany({ where: { ativa: true }, orderBy: { nome: 'asc' } });
+const textoPrazo = (min: number) => (min < 60 ? `em até ${min} min` : min % 60 === 0 ? `em até ${min / 60} h` : `em até ${Math.floor(min / 60)} h ${min % 60} min`);
+
+/**
+ * Entrega no bairro (taxa e prazo da tabela de bairros) e retirada na loja.
+ * O bairro vem do endereço do cliente; sem endereço, é descoberto pelo CEP.
+ */
+export async function cotar(destino: { cep?: string | null; bairro?: string | null }, subtotal: number, itens: { produtoId: string; quantidade: number }[]) {
+  const { entrega: cfg } = await configuracoes();
+  const lojas = await db.loja.findMany({ where: { ativa: true, centroDistribuicao: false }, orderBy: { nome: 'asc' } });
   const estoque = await disponibilidadePorLoja(itens.map((i) => i.produtoId));
   const entregas: OpcaoEntrega[] = [];
+  const bairro = destino.bairro?.trim() || (destino.cep ? await bairroDoCep(destino.cep) : null);
 
-  if (cep && cepValido(cep)) {
-    const locais = lojas.filter((l) => !l.centroDistribuicao && atende(l.faixasCep, cep));
-    const localComEstoque = locais.find((l) => temTudo(estoque.get(l.id), itens));
-    const cd = lojas.find((l) => l.centroDistribuicao && temTudo(estoque.get(l.id), itens));
-
-    if (localComEstoque?.aceitaExpressa) {
-      const agora = new Date();
-      entregas.push({ modalidade: 'ENTREGA_EXPRESSA', rotulo: 'Expressa', prazo: 'Em até 2 horas', preco: 1490, lojaId: localComEstoque.id, lojaNome: localComEstoque.nome, previsao: new Date(agora.getTime() + 2 * 3_600_000), disponivel: true });
-    } else if (locais.length) {
-      entregas.push({ modalidade: 'ENTREGA_EXPRESSA', rotulo: 'Expressa', prazo: 'Em até 2 horas', preco: 1490, lojaId: locais[0].id, lojaNome: locais[0].nome, previsao: new Date(), disponivel: false, motivo: 'Itens indisponíveis na loja mais próxima' });
-    }
-
-    const origem = localComEstoque ?? cd;
-    if (origem) {
-      const local = origem === localComEstoque;
-      const t = local ? { preco: 790, dias: [1, 1], gratisAcima: config.frete.gratisAcimaDe } : tabelaRegional(cep);
-      const preco = subtotal >= t.gratisAcima ? 0 : t.preco;
-      entregas.push({
-        modalidade: 'ENTREGA_PADRAO', rotulo: 'Padrão', preco, lojaId: origem.id, lojaNome: origem.nome,
-        prazo: t.dias[0] === t.dias[1] ? `${t.dias[0]} dia útil` : `${t.dias[0]} a ${t.dias[1]} dias úteis`,
-        previsao: diasUteis(t.dias[1]), disponivel: true,
-      });
+  if (cfg.ativa && (bairro || destino.cep)) {
+    const origem = lojas.find((l) => temTudo(estoque.get(l.id), itens)) ?? null;
+    const base = { modalidade: 'ENTREGA_PADRAO' as const, rotulo: 'Entrega no bairro', lojaId: origem?.id ?? '', lojaNome: origem?.nome ?? '' };
+    const zona = bairro && origem ? await db.zonaEntrega.findUnique({ where: { lojaId_bairroBusca: { lojaId: origem.id, bairroBusca: normalizar(bairro) } } }) : null;
+    let taxa: number | null = zona?.ativo ? zona.taxa : cfg.somenteBairrosCadastrados ? null : cfg.taxaPadrao;
+    const prazoMin = zona?.ativo ? zona.prazoMinutos : cfg.prazoPadraoMinutos;
+    if (!origem) {
+      entregas.push({ ...base, prazo: '—', preco: 0, previsao: new Date(), disponivel: false, motivo: 'Sem estoque suficiente para entrega agora' });
+    } else if (taxa === null) {
+      entregas.push({ ...base, prazo: '—', preco: 0, previsao: new Date(), disponivel: false, motivo: bairro ? `Ainda não entregamos no bairro ${bairro}. Você pode retirar na loja.` : 'Não identificamos o bairro desse CEP. Cadastre o endereço completo.' });
+    } else if (subtotal < cfg.pedidoMinimo) {
+      entregas.push({ ...base, prazo: textoPrazo(prazoMin), preco: taxa, previsao: new Date(), disponivel: false, motivo: `Pedido mínimo para entrega: ${brl(cfg.pedidoMinimo)}` });
     } else {
-      const motivo = !locais.length && !lojas.some((l) => l.centroDistribuicao)
-        ? 'Ainda não entregamos neste CEP. Você pode retirar na loja.'
-        : 'Sem estoque suficiente para entrega neste momento';
-      entregas.push({ modalidade: 'ENTREGA_PADRAO', rotulo: 'Padrão', preco: 0, lojaId: '', lojaNome: '', prazo: '—', previsao: new Date(), disponivel: false, motivo });
+      if (cfg.taxaMaxima > 0) taxa = Math.min(taxa, cfg.taxaMaxima);
+      if (cfg.freteGratisAcima > 0 && subtotal >= cfg.freteGratisAcima) taxa = 0;
+      entregas.push({ ...base, rotulo: bairro ? `Entrega em ${bairro}` : base.rotulo, prazo: textoPrazo(prazoMin), preco: taxa, previsao: new Date(Date.now() + prazoMin * 60_000), disponivel: true });
     }
   }
 
-  const retiradas: OpcaoEntrega[] = lojas
-    .filter((l) => !l.centroDistribuicao)
-    .map((l) => {
-      const ok = temTudo(estoque.get(l.id), itens);
-      return {
-        modalidade: 'RETIRADA' as const, rotulo: `Retirar em ${l.nome}`, prazo: ok ? 'Pronto em até 1 hora' : 'Indisponível nesta loja', preco: 0,
-        lojaId: l.id, lojaNome: l.nome, previsao: new Date(Date.now() + 3_600_000), disponivel: ok, motivo: ok ? undefined : 'Falta estoque de algum item',
-      };
-    })
-    .sort((a, b) => Number(b.disponivel) - Number(a.disponivel));
+  const retiradas: OpcaoEntrega[] = cfg.retiradaAtiva
+    ? lojas
+        .map((l) => {
+          const ok = temTudo(estoque.get(l.id), itens);
+          return {
+            modalidade: 'RETIRADA' as const, rotulo: `Retirar em ${l.nome}`, prazo: ok ? 'Pronto em até 1 hora' : 'Indisponível nesta loja', preco: 0,
+            lojaId: l.id, lojaNome: l.nome, previsao: new Date(Date.now() + 3_600_000), disponivel: ok, motivo: ok ? undefined : 'Falta estoque de algum item',
+          };
+        })
+        .sort((a, b) => Number(b.disponivel) - Number(a.disponivel))
+    : [];
 
-  return { entregas, retiradas, lojas };
+  return { entregas, retiradas, lojas, bairro };
 }

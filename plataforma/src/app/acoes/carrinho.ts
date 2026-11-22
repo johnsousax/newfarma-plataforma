@@ -68,7 +68,7 @@ export async function cotarFrete(cep: string, produtoId?: string) {
       subtotal = r.subtotal - r.descontoPromocoes;
       await db.carrinho.update({ where: { id: c.id }, data: { cep: limpo } });
     }
-    const r = await cotar(limpo, subtotal, itens);
+    const r = await cotar({ cep: limpo }, subtotal, itens);
     return {
       entregas: r.entregas.map((e) => ({ modalidade: e.modalidade, rotulo: e.rotulo, prazo: e.prazo, preco: e.preco, disponivel: e.disponivel, motivo: e.motivo ?? null, loja: e.lojaNome })),
       retiradas: r.retiradas.filter((x) => x.disponivel).slice(0, 3).map((e) => ({ loja: e.lojaNome, prazo: e.prazo })),

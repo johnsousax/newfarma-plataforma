@@ -15,6 +15,7 @@ export const metadata = { title: { default: 'Painel', template: '%s · Painel' }
 const ITENS: (Omit<ItemMenu, 'contador'> & { perm: Permissao })[] = [
   { href: '/admin', icone: 'painel', rotulo: 'Visão geral', grupo: 'Operação', perm: 'painel' },
   { href: '/admin/pedidos', icone: 'pedidos', rotulo: 'Pedidos', grupo: 'Operação', perm: 'pedidos' },
+  { href: '/admin/entregas', icone: 'entregas', rotulo: 'Entregas', grupo: 'Operação', perm: 'entregas' },
   { href: '/admin/receitas', icone: 'receitas', rotulo: 'Receitas', grupo: 'Operação', perm: 'verReceitas' },
   { href: '/admin/atendimento', icone: 'atendimento', rotulo: 'Atendimento', grupo: 'Operação', perm: 'atendimento' },
   { href: '/admin/pdv', icone: 'pdv', rotulo: 'PDV / Caixa', grupo: 'Operação', perm: 'pdv' },
@@ -25,6 +26,7 @@ const ITENS: (Omit<ItemMenu, 'contador'> & { perm: Permissao })[] = [
   { href: '/admin/compras', icone: 'compras', rotulo: 'Compras', grupo: 'Suprimentos', perm: 'compras' },
   { href: '/admin/fornecedores', icone: 'fornecedores', rotulo: 'Fornecedores', grupo: 'Suprimentos', perm: 'compras' },
   { href: '/admin/clientes', icone: 'clientes', rotulo: 'Clientes', grupo: 'Gestão', perm: 'clientes' },
+  { href: '/admin/notas', icone: 'notas', rotulo: 'Notas fiscais', grupo: 'Gestão', perm: 'notas' },
   { href: '/admin/relatorios', icone: 'relatorios', rotulo: 'Relatórios', grupo: 'Gestão', perm: 'relatorios' },
   { href: '/admin/anvisa', icone: 'anvisa', rotulo: 'ANVISA / SNGPC', grupo: 'Gestão', perm: 'anvisa' },
   { href: '/admin/equipe', icone: 'equipe', rotulo: 'Equipe', grupo: 'Administração', perm: 'equipe' },

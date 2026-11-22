@@ -173,7 +173,7 @@ const BULA_PADRAO = {
 
 // Limpa SOMENTE as tabelas do schema da aplicação (nunca o banco inteiro: no Supabase o
 // banco é compartilhado com outros projetos). Só as tabelas que o Prisma conhece são afetadas.
-const TABELAS_DA_APP = new Set(['Loja', 'Usuario', 'Sessao', 'Endereco', 'Categoria', 'Marca', 'Produto', 'HistoricoPreco', 'Avaliacao', 'Favorito', 'Banner', 'Promocao', 'Cupom', 'Lote', 'MovimentoEstoque', 'Carrinho', 'CarrinhoItem', 'Pedido', 'PedidoItem', 'PedidoEvento', 'Pagamento', 'Receita', 'Escrituracao', 'Assinatura', 'Lembrete', 'MovimentoPontos', 'Fornecedor', 'PedidoCompra', 'PedidoCompraItem', 'CaixaSessao', 'CaixaMovimento', 'Auditoria', 'TokenSenha', 'ImagemProduto', 'Conversa', 'Mensagem', '_PromocaoProdutos']);
+const TABELAS_DA_APP = new Set(['ZonaEntrega', 'Motoboy', 'Loja', 'Usuario', 'Sessao', 'Endereco', 'Categoria', 'Marca', 'Produto', 'HistoricoPreco', 'Avaliacao', 'Favorito', 'Banner', 'Promocao', 'Cupom', 'Lote', 'MovimentoEstoque', 'Carrinho', 'CarrinhoItem', 'Pedido', 'PedidoItem', 'PedidoEvento', 'Pagamento', 'Receita', 'Escrituracao', 'Assinatura', 'Lembrete', 'MovimentoPontos', 'Fornecedor', 'PedidoCompra', 'PedidoCompraItem', 'CaixaSessao', 'CaixaMovimento', 'Auditoria', 'TokenSenha', 'ImagemProduto', 'Conversa', 'Mensagem', '_PromocaoProdutos']);
 
 async function limpar() {
   if (process.env.NODE_ENV === 'production' && process.env.PERMITIR_SEED_DEMO !== '1') throw new Error('Seed de demonstração bloqueado em produção (defina PERMITIR_SEED_DEMO=1 conscientemente).');
@@ -199,6 +199,14 @@ async function main() {
   const lojas = [];
   for (const l of lojasDados) lojas.push(await db.loja.create({ data: l }));
   const [matriz] = lojas;
+  // Bairros atendidos (exemplo: ajuste em Painel › Entregas)
+  for (const [bairro, taxa, prazo] of [['Bela Vista', 500, 40], ['Consolação', 600, 45], ['Jardins', 700, 50], ['Liberdade', 700, 50], ['República', 600, 45], ['Pinheiros', 900, 60], ['Vila Mariana', 900, 60], ['Moema', 1000, 70]] as const) {
+    await db.zonaEntrega.create({ data: { lojaId: matriz.id, bairro, bairroBusca: normalizar(bairro), taxa, prazoMinutos: prazo } });
+  }
+  await db.loja.update({ where: { id: matriz.id }, data: { latitude: -23.5614, longitude: -46.6559 } });
+  for (const [nome, telefone, veiculo, placa] of [['Rafael Entregas', '11988880001', 'Moto Honda CG 160', 'ABC1D23'], ['Juliana Motogirl', '11988880002', 'Moto Yamaha Factor', 'EFG4H56']] as const) {
+    await db.motoboy.create({ data: { nome, telefone, veiculo, placa, taxaPorEntrega: 500, token: crypto.randomBytes(18).toString('base64url') } });
+  }
   const paulista = matriz;
 
   // ── Categorias e marcas

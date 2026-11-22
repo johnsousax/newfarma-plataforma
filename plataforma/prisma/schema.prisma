@@ -149,7 +149,10 @@ model Loja {
   /// Centro de distribuição: atende entregas padrão para todo o Brasil
   centroDistribuicao Boolean  @default(false)
   ativa              Boolean  @default(true)
+  latitude           Float?
+  longitude          Float?
   criadoEm           DateTime @default(now())
+  zonas              ZonaEntrega[]
 
   equipe   Usuario[]
   lotes    Lote[]
@@ -299,6 +302,15 @@ model Produto {
   icone              String          @default("💊")
   estoqueMinimo      Int             @default(10)
   pesoGramas         Int             @default(100)
+  /// Dados fiscais (NF-e / NFC-e)
+  ncm                String?
+  cest               String?
+  cfop               String?
+  /// Origem da mercadoria (0 = nacional ... 8)
+  origemFiscal       Int             @default(0)
+  /// CSOSN (Simples) ou CST do ICMS
+  cstIcms            String?
+  unidade            String          @default("UN")
   ativo              Boolean         @default(true)
   destaque           Boolean         @default(false)
   /// Unidades vendidas (alimenta "mais vendidos")
@@ -527,6 +539,13 @@ model Pedido {
   caixaId           String?
   caixa             CaixaSessao?     @relation(fields: [caixaId], references: [id])
   assinaturaId      String?
+  motoboyId         String?
+  motoboy           Motoboy?         @relation(fields: [motoboyId], references: [id])
+  despachadoEm      DateTime?
+  entregueEm        DateTime?
+  /// Valor repassado ao motoboy por esta entrega
+  taxaMotoboy       Int?
+  notas             NotaFiscal[]
   criadoEm          DateTime         @default(now())
   atualizadoEm      DateTime         @updatedAt
 
@@ -897,4 +916,81 @@ model Configuracao {
   valor         Json
   atualizadoPor String?
   atualizadoEm  DateTime @updatedAt
+}
+
+// ─────────────────────────────── Entregas ───────────────────────────────
+
+/// Taxa e prazo de entrega por bairro
+model ZonaEntrega {
+  id           String   @id @default(uuid())
+  lojaId       String
+  loja         Loja     @relation(fields: [lojaId], references: [id], onDelete: Cascade)
+  bairro       String
+  /// Nome normalizado (sem acento, minúsculo) para comparar com o endereço
+  bairroBusca  String
+  taxa         Int
+  prazoMinutos Int      @default(60)
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+
+  @@unique([lojaId, bairroBusca])
+}
+
+model Motoboy {
+  id             String    @id @default(uuid())
+  nome           String
+  telefone       String
+  veiculo        String?
+  placa          String?
+  taxaPorEntrega Int       @default(0)
+  ativo          Boolean   @default(true)
+  /// Link exclusivo do app do entregador (não exige login)
+  token          String    @unique
+  latitude       Float?
+  longitude      Float?
+  posicaoEm      DateTime?
+  criadoEm       DateTime  @default(now())
+  pedidos        Pedido[]
+}
+
+// ─────────────────────────────── Fiscal ───────────────────────────────
+
+enum ModeloNota {
+  NFCE
+  NFE
+}
+
+enum StatusNota {
+  /// Gerada e validada, aguardando transmissão (sem provedor configurado)
+  PENDENTE
+  ENVIADA
+  AUTORIZADA
+  REJEITADA
+  CANCELADA
+}
+
+model NotaFiscal {
+  id           String     @id @default(uuid())
+  pedidoId     String
+  pedido       Pedido     @relation(fields: [pedidoId], references: [id])
+  modelo       ModeloNota @default(NFCE)
+  serie        Int
+  numero       Int
+  ambiente     String
+  status       StatusNota @default(PENDENTE)
+  chaveAcesso  String     @unique
+  protocolo    String?
+  /// Documento pronto para o provedor (layout 4.00 em JSON)
+  conteudo     Json
+  xmlAutorizado String?
+  motivo       String?
+  valorTotal   Int
+  provedor     String
+  emitidaPor   String?
+  autorizadaEm DateTime?
+  canceladaEm  DateTime?
+  criadoEm     DateTime   @default(now())
+
+  @@unique([modelo, serie, numero, ambiente])
+  @@index([pedidoId])
 }

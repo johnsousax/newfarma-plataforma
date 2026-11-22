@@ -68,6 +68,10 @@ const produtoSchema = z.object({
   preco: reais.refine((v) => v > 0, 'Preço obrigatório'), precoDe: reaisOpc, pmc: reaisOpc, custo: reaisOpc,
   icone: z.string().trim().min(1).max(8), estoqueMinimo: z.coerce.number().int().min(0).max(10000),
   tags: z.string().max(300).optional(), ativo: z.string().optional(), destaque: z.string().optional(), motivoPreco: z.string().max(200).optional(),
+  ncm: z.string().transform((t) => t.replace(/\D/g, '')).pipe(z.string().regex(/^(\d{8})?$/, 'NCM com 8 dígitos')).optional(),
+  cest: z.string().transform((t) => t.replace(/\D/g, '')).pipe(z.string().regex(/^(\d{7})?$/, 'CEST com 7 dígitos')).optional(),
+  cfop: z.string().transform((t) => t.replace(/\D/g, '')).pipe(z.string().regex(/^([1-7]\d{3})?$/, 'CFOP com 4 dígitos')).optional(),
+  cstIcms: z.string().trim().max(3).optional(), origemFiscal: z.coerce.number().int().min(0).max(8).optional(), unidade: z.string().trim().max(6).optional(),
 });
 
 export async function salvarProduto(_: unknown, form: FormData) {
@@ -96,6 +100,7 @@ export async function salvarProduto(_: unknown, form: FormData) {
       indicacoes: d.indicacoes || null, contraindicacoes: d.contraindicacoes || null, modoDeUsar: d.modoDeUsar || null, advertencias: d.advertencias || null,
       preco: d.preco, precoDe: d.precoDe, pmc: d.pmc, custo: d.custo, icone: d.icone, estoqueMinimo: d.estoqueMinimo, tags,
       ativo: d.ativo === 'on', destaque: d.destaque === 'on',
+      ncm: d.ncm || null, cest: d.cest || null, cfop: d.cfop || null, cstIcms: d.cstIcms || null, origemFiscal: d.origemFiscal ?? 0, unidade: (d.unidade || 'UN').toUpperCase(),
       busca: normalizar([d.nome, marca.nome, d.principioAtivo ?? '', categoria.nome, ...tags].join(' ')),
     };
     try {
@@ -422,8 +427,14 @@ export async function finalizarVendaPdv(dados: unknown) {
       cpf: z.string().transform((s) => s.replace(/\D/g, '')).optional(), receitaConferida: z.boolean().optional(), registroPrescritor: z.string().max(30).optional(),
     }).parse(dados);
     const r = await venderBalcao(u, { ...d, cpf: d.cpf || undefined });
+    let nota: string | null = null;
+    const { configuracoes } = await import('@/server/configuracoes');
+    if ((await configuracoes()).fiscal.emitirAutomaticamente) {
+      const { gerarNfce } = await import('@/server/fiscal/nfce');
+      nota = await gerarNfce(r.id, u.id).then((n) => `NFC-e ${n.numero}`, (e: Error) => `NFC-e não gerada: ${e.message}`);
+    }
     refresh();
-    return r;
+    return { ...r, nota };
   });
 }
 
@@ -622,4 +633,133 @@ export async function salvarConfiguracaoAcao(grupo: string, _: unknown, form: Fo
     }
     refresh();
   }, 'Configuração salva');
+}
+
+// ─────────────── Entregas e motoboys ───────────────
+
+/** Loja do usuário; para o dono (sem loja fixa), a primeira loja ativa. */
+async function lojaPrincipal(u: { papel: string; lojaId: string | null }) {
+  const id = u.lojaId ?? (await db.loja.findFirst({ where: { ativa: true, centroDistribuicao: false }, orderBy: { criadoEm: 'asc' }, select: { id: true } }))?.id;
+  if (!id) throw new ErroNegocio('Cadastre uma loja primeiro.');
+  return { id };
+}
+
+export async function salvarZonaAcao(_: unknown, form: FormData) {
+  const p = z.object({ bairro: z.string().trim().min(2).max(80), taxa: z.string(), prazoMinutos: z.coerce.number().int().min(10).max(1440) }).safeParse(campos(form));
+  if (!p.success) return errosZod(p.error);
+  return executar(async () => {
+    const u = await exigirPermissao('lojas');
+    const loja = await lojaPrincipal(u);
+    const { salvarZona } = await import('@/server/entregas');
+    await salvarZona({ id: form.get('id') ? uuid.parse(form.get('id')) : null, lojaId: loja.id, bairro: p.data.bairro, taxa: centavos(p.data.taxa), prazoMinutos: p.data.prazoMinutos, ativo: form.get('inativo') !== 'on' }, u.id);
+    refresh();
+  }, 'Bairro salvo');
+}
+
+export async function excluirZonaAcao(id: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('lojas');
+    await db.zonaEntrega.delete({ where: { id: uuid.parse(id) } });
+    await auditar('zona.excluida', { usuarioId: u.id, alvo: id });
+    refresh();
+  });
+}
+
+export async function salvarLocalLojaAcao(_: unknown, form: FormData) {
+  const p = z.object({ latitude: z.coerce.number().min(-90).max(90), longitude: z.coerce.number().min(-180).max(180) }).safeParse(campos(form));
+  if (!p.success) return errosZod(p.error);
+  return executar(async () => {
+    const u = await exigirPermissao('lojas');
+    const loja = await lojaPrincipal(u);
+    await db.loja.update({ where: { id: loja.id }, data: p.data });
+    await auditar('loja.localizacao', { usuarioId: u.id, alvo: loja.id });
+    refresh();
+  }, 'Localização da loja salva');
+}
+
+export async function salvarMotoboyAcao(_: unknown, form: FormData) {
+  const p = z.object({
+    nome: z.string().trim().min(2).max(80), telefone: z.string().transform((t) => t.replace(/\D/g, '')).pipe(z.string().min(10, 'Telefone com DDD').max(13)),
+    veiculo: z.string().max(60).optional(), placa: z.string().max(10).optional(), taxaPorEntrega: z.string(),
+  }).safeParse(campos(form));
+  if (!p.success) return errosZod(p.error);
+  return executar(async () => {
+    const u = await exigirPermissao('entregas');
+    const { novoToken } = await import('@/server/entregas');
+    const id = form.get('id') ? uuid.parse(form.get('id')) : null;
+    const dados = { nome: p.data.nome, telefone: p.data.telefone, veiculo: p.data.veiculo || null, placa: p.data.placa?.toUpperCase() || null, taxaPorEntrega: centavos(p.data.taxaPorEntrega), ativo: form.get('inativo') !== 'on' };
+    const m = id ? await db.motoboy.update({ where: { id }, data: dados }) : await db.motoboy.create({ data: { ...dados, token: novoToken() } });
+    await auditar(id ? 'motoboy.editado' : 'motoboy.criado', { usuarioId: u.id, alvo: m.id });
+    refresh();
+  }, 'Motoboy salvo');
+}
+
+export async function novoLinkMotoboyAcao(id: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('entregas');
+    const { novoToken } = await import('@/server/entregas');
+    await db.motoboy.update({ where: { id: uuid.parse(id) }, data: { token: novoToken() } });
+    await auditar('motoboy.link_renovado', { usuarioId: u.id, alvo: id });
+    refresh();
+  }, 'Novo link gerado. O link antigo parou de funcionar.');
+}
+
+export async function despacharAcao(pedidoId: string, motoboyId: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('entregas');
+    const { despachar } = await import('@/server/entregas');
+    const m = await despachar(u, uuid.parse(pedidoId), uuid.parse(motoboyId), await ipAtual());
+    refresh();
+    return { telefone: m.telefone, token: m.token };
+  }, 'Pedido despachado');
+}
+
+// ─────────────── Notas fiscais ───────────────
+
+export async function gerarNotaAcao(pedidoId: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('notas');
+    const { gerarNfce } = await import('@/server/fiscal/nfce');
+    const n = await gerarNfce(uuid.parse(pedidoId), u.id);
+    refresh();
+    return n;
+  }, 'NFC-e gerada');
+}
+
+export async function cancelarNotaAcao(id: string, justificativa?: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('notas');
+    const { cancelarNota } = await import('@/server/fiscal/nfce');
+    await cancelarNota(uuid.parse(id), justificativa ?? '', u.id);
+    refresh();
+  }, 'Nota cancelada');
+}
+
+// ─────────────── Assistente de compras (IA) ───────────────
+
+const TIPOS_ARQ_COMPRA = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'text/csv', 'text/plain', 'application/vnd.ms-excel'];
+
+export async function assistenteComprasAcao(form: FormData) {
+  return executar(async () => {
+    const u = await exigirPermissao('compras');
+    const { limitarTaxa } = await import('@/server/auth');
+    limitarTaxa(`compras-ia:${u.id}`, 40, 60 * 60_000);
+    const texto = String(form.get('texto') ?? '').slice(0, 4000);
+    const historico = z.array(z.object({ papel: z.enum(['usuario', 'assistente']), texto: z.string().max(8000) })).max(30).parse(JSON.parse(String(form.get('historico') || '[]')));
+    const rascunho = form.get('rascunho') ? JSON.parse(String(form.get('rascunho'))) : null;
+    let arquivo = null;
+    const f = form.get('arquivo');
+    if (f instanceof File && f.size > 0) {
+      if (f.size > 5 * 1024 * 1024) throw new ErroNegocio('Arquivo acima de 5 MB.');
+      const tipo = f.type || (f.name.endsWith('.csv') ? 'text/csv' : 'text/plain');
+      if (!TIPOS_ARQ_COMPRA.includes(tipo)) throw new ErroNegocio('Envie foto (JPG/PNG), PDF, CSV ou TXT. Planilhas Excel: salve como CSV.');
+      arquivo = { nome: f.name.slice(0, 80), tipo: tipo === 'application/vnd.ms-excel' ? 'text/csv' : tipo, bytes: Buffer.from(await f.arrayBuffer()) };
+    }
+    if (!texto.trim() && !arquivo) throw new ErroNegocio('Escreva, fale ou envie um arquivo.');
+    const loja = await lojaPrincipal(u);
+    const { conversarCompras } = await import('@/server/compras/assistente');
+    const r = await conversarCompras(loja.id, historico, texto, arquivo, rascunho);
+    await auditar('compras.assistente', { usuarioId: u.id, detalhes: { arquivo: arquivo?.nome ?? null, itens: r.rascunho?.itens.length ?? 0 } });
+    return { ...r, lojaId: loja.id };
+  });
 }

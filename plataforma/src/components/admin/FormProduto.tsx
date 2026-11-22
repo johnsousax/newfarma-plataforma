@@ -60,6 +60,16 @@ export function FormProduto({ produto, marcas, categorias }: { produto?: P; marc
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="destaque" defaultChecked={!!produto?.destaque} className="h-4 w-4 accent-marca-600" /> Destaque na vitrine</label>
       </section>
 
+      <section className="cartao grid gap-4 p-5 md:grid-cols-4">
+        <h2 className="font-semibold md:col-span-4">Fiscal (nota fiscal)</h2>
+        <Campo rotulo="NCM (8 dígitos)" erro={c.ncm} ajuda="Medicamentos: geralmente 3004.90.69"><input name="ncm" defaultValue={v('ncm')} inputMode="numeric" className="campo" /></Campo>
+        <Campo rotulo="CEST" erro={c.cest} ajuda="Obrigatório em itens com ICMS-ST"><input name="cest" defaultValue={v('cest')} inputMode="numeric" className="campo" /></Campo>
+        <Campo rotulo="CFOP" erro={c.cfop} ajuda="5102 normal · 5405 com ST"><input name="cfop" defaultValue={v('cfop') || '5405'} inputMode="numeric" className="campo" /></Campo>
+        <Campo rotulo="CSOSN / CST ICMS" ajuda="Simples: 500 (ST) ou 102"><input name="cstIcms" defaultValue={v('cstIcms') || '500'} className="campo" /></Campo>
+        <Campo rotulo="Origem"><select name="origemFiscal" defaultValue={v('origemFiscal') || '0'} className="campo"><option value="0">0 · Nacional</option><option value="1">1 · Importação direta</option><option value="2">2 · Importada no mercado interno</option><option value="5">5 · Nacional, importado ≤ 40%</option></select></Campo>
+        <Campo rotulo="Unidade"><input name="unidade" defaultValue={v('unidade') || 'UN'} className="campo uppercase" /></Campo>
+      </section>
+
       {Object.keys(c).length > 0 && <Aviso tipo="erro">{Object.entries(c).map(([k, m]) => `${k}: ${m}`).join(' · ')}</Aviso>}
       {estado && !estado.ok && !Object.keys(c).length && <Aviso tipo="erro">{estado.erro}</Aviso>}
       <Botao tamanho="lg" disabled={pendente}>{pendente ? 'Salvando…' : 'Salvar produto'}</Botao>

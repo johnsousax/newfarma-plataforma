@@ -40,7 +40,7 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/admin/esto
       </div>
 
       {produtoId ? <Lotes produtoId={produtoId} lojaId={lojaId} voltar={link({ produto: null })} /> :
-        aba === 'posicao' ? <Posicao lojaId={lojaId} q={q} link={link} /> :
+        aba === 'posicao' ? <Posicao lojaId={lojaId} q={q} ordem={typeof sp.ordem === 'string' ? sp.ordem : 'az'} link={link} /> :
         aba === 'movimentos' ? <Movimentos lojaId={lojaId} /> :
         aba === 'entrada' ? <Entrada lojaId={lojaId} /> :
         <Alertas lojaId={lojaId} link={link} />}
@@ -70,25 +70,40 @@ async function Alertas({ lojaId, link }: { lojaId: string; link: (m: Record<stri
   );
 }
 
-async function Posicao({ lojaId, q, link }: { lojaId: string; q: string; link: (m: Record<string, string | null>) => string }) {
+const ORDENS = [['az', 'A a Z'], ['za', 'Z a A'], ['menor', 'Menor quantidade'], ['maior', 'Maior quantidade'], ['validade', 'Validade mais próxima']] as const;
+
+async function Posicao({ lojaId, q, ordem, link }: { lojaId: string; q: string; ordem: string; link: (m: Record<string, string | null>) => string }) {
   const produtos = await db.produto.findMany({
-    where: { ativo: true, ...(q ? { busca: { contains: normalizar(q) } } : {}) }, orderBy: { nome: 'asc' }, take: 200,
+    where: { ativo: true, ...(q ? { busca: { contains: normalizar(q) } } : {}) }, orderBy: { nome: 'asc' }, take: 3000,
     select: { id: true, nome: true, sku: true, estoqueMinimo: true, lotes: { where: { lojaId }, select: { quantidade: true, reservado: true, validade: true } } },
   });
   const agora = new Date();
+  const linhas = produtos.map((p) => {
+    const validos = p.lotes.filter((l) => l.validade > agora && l.quantidade > 0);
+    return {
+      ...p,
+      fisico: p.lotes.reduce((s, l) => s + l.quantidade, 0),
+      reservado: p.lotes.reduce((s, l) => s + l.reservado, 0),
+      disp: validos.reduce((s, l) => s + l.quantidade - l.reservado, 0),
+      prox: validos.map((l) => l.validade).sort((a, b) => +a - +b)[0] as Date | undefined,
+    };
+  });
+  const cmp: Record<string, (a: (typeof linhas)[number], b: (typeof linhas)[number]) => number> = {
+    az: (a, b) => a.nome.localeCompare(b.nome, 'pt-BR'), za: (a, b) => b.nome.localeCompare(a.nome, 'pt-BR'),
+    menor: (a, b) => a.disp - b.disp || a.nome.localeCompare(b.nome, 'pt-BR'), maior: (a, b) => b.disp - a.disp || a.nome.localeCompare(b.nome, 'pt-BR'),
+    validade: (a, b) => (a.prox ? +a.prox : Infinity) - (b.prox ? +b.prox : Infinity),
+  };
+  linhas.sort(cmp[ordem] ?? cmp.az);
   return (
     <>
-      <form className="flex gap-2"><input type="hidden" name="loja" value={lojaId} /><input type="hidden" name="aba" value="posicao" /><input name="q" defaultValue={q} placeholder="Filtrar produto" className="campo max-w-xs" /><button className="rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white">Filtrar</button></form>
+      <form className="flex flex-wrap gap-2"><input type="hidden" name="loja" value={lojaId} /><input type="hidden" name="aba" value="posicao" /><input name="q" defaultValue={q} placeholder="Filtrar produto" className="campo max-w-xs" />
+        <select name="ordem" defaultValue={ordem} className="campo w-auto" aria-label="Ordenar por">{ORDENS.map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select>
+        <button className="rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white">Aplicar</button><span className="self-center text-sm text-slate-500">{linhas.length} produtos</span></form>
       <div className="cartao overflow-x-auto">
         <table className="tabela">
           <thead><tr><th>Produto</th><th className="text-right">Físico</th><th className="text-right">Reservado</th><th className="text-right">Disponível</th><th className="text-right">Mínimo</th><th>Próx. validade</th><th /></tr></thead>
           <tbody>
-            {produtos.map((p) => {
-              const validos = p.lotes.filter((l) => l.validade > agora && l.quantidade > 0);
-              const fisico = p.lotes.reduce((s, l) => s + l.quantidade, 0);
-              const reservado = p.lotes.reduce((s, l) => s + l.reservado, 0);
-              const disp = validos.reduce((s, l) => s + l.quantidade - l.reservado, 0);
-              const prox = validos.map((l) => l.validade).sort((a, b) => +a - +b)[0];
+            {linhas.map(({ fisico, reservado, disp, prox, ...p }) => {
               return (
                 <tr key={p.id}>
                   <td>{p.nome}<span className="block text-xs text-slate-500">{p.sku}</span></td>

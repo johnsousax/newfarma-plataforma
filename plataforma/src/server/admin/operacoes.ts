@@ -60,6 +60,12 @@ export async function receberCompra(u: UsuarioSessao, id: string, notaFiscal: st
     await tx.pedidoCompra.update({ where: { id }, data: { status: 'RECEBIDO', recebidoEm: new Date(), notaFiscal: notaFiscal.trim() } });
     await auditar('compra.recebida', { usuarioId: u.id, alvo: id, detalhes: { nf: notaFiscal } }, tx);
   }, { timeout: 20_000 });
+  // vira conta a pagar no financeiro
+  const c = await db.pedidoCompra.findUnique({ where: { id }, select: { id: true, numero: true, total: true, fornecedorId: true, notaFiscal: true } });
+  if (c) {
+    const { contaDaCompra } = await import('../financeiro');
+    await contaDaCompra(c, u.id).catch((e) => console.error('[financeiro] compra', e));
+  }
 }
 
 // ─────────────── Caixa ───────────────

@@ -59,7 +59,7 @@ const produtoSchema = z.object({
   ean: z.string().trim().regex(/^\d{8,14}$/, 'EAN com 8 a 14 dígitos').optional().or(z.literal('')),
   descricaoCurta: z.string().trim().min(3).max(200),
   descricao: z.string().trim().min(10).max(5000),
-  marcaId: uuid, categoriaId: uuid,
+  marcaNome: z.string().trim().min(2, 'Informe a marca').max(60), categoriaId: uuid,
   classificacao: z.enum(Classificacao), tipo: z.enum(TipoMedicamento),
   principioAtivo: z.string().trim().max(150).optional(), concentracao: z.string().trim().max(50).optional(),
   formaFarmaceutica: z.string().trim().max(80).optional(), apresentacao: z.string().trim().max(80).optional(),
@@ -91,10 +91,12 @@ export async function salvarProduto(_: unknown, form: FormData) {
     }
     if (d.precoDe && d.precoDe <= d.preco) throw new ErroNegocio('O preço "de" deve ser maior que o preço de venda.');
     const id = form.get('id') ? uuid.parse(form.get('id')) : null;
-    const [marca, categoria] = await Promise.all([db.marca.findUniqueOrThrow({ where: { id: d.marcaId } }), db.categoria.findUniqueOrThrow({ where: { id: d.categoriaId } })]);
+    const marca = (await db.marca.findFirst({ where: { nome: { equals: d.marcaNome, mode: 'insensitive' } } }))
+      ?? (await db.marca.create({ data: { nome: d.marcaNome, slug: `${slugificar(d.marcaNome)}-${Date.now().toString(36).slice(-4)}` } }));
+    const categoria = await db.categoria.findUniqueOrThrow({ where: { id: d.categoriaId } });
     const tags = (d.tags ?? '').split(',').map((t) => normalizar(t)).filter(Boolean).slice(0, 15);
     const dados = {
-      nome: d.nome, sku: d.sku.toUpperCase(), ean: d.ean || null, descricaoCurta: d.descricaoCurta, descricao: d.descricao, marcaId: d.marcaId, categoriaId: d.categoriaId,
+      nome: d.nome, sku: d.sku.toUpperCase(), ean: d.ean || null, descricaoCurta: d.descricaoCurta, descricao: d.descricao, marcaId: marca.id, categoriaId: d.categoriaId,
       classificacao: d.classificacao, tipo: regra.medicamento ? d.tipo : 'NAO_SE_APLICA' as const, principioAtivo: d.principioAtivo || null, concentracao: d.concentracao || null,
       formaFarmaceutica: d.formaFarmaceutica || null, apresentacao: d.apresentacao || null, registroAnvisa: regra.medicamento ? (d.registroAnvisa ?? '').replace(/\D/g, '') : null,
       indicacoes: d.indicacoes || null, contraindicacoes: d.contraindicacoes || null, modoDeUsar: d.modoDeUsar || null, advertencias: d.advertencias || null,
@@ -761,5 +763,245 @@ export async function assistenteComprasAcao(form: FormData) {
     const r = await conversarCompras(loja.id, historico, texto, arquivo, rascunho);
     await auditar('compras.assistente', { usuarioId: u.id, detalhes: { arquivo: arquivo?.nome ?? null, itens: r.rascunho?.itens.length ?? 0 } });
     return { ...r, lojaId: loja.id };
+  });
+}
+
+// ─────────────── Código de barras ───────────────
+
+/** Bipou um EAN: abre o produto se já existe; senão inicia o cadastro com o código (e nome/marca de bases abertas quando houver). */
+export async function biparCodigoAcao(codigo: string) {
+  const r = await executar(async () => {
+    await exigirPermissao('produtos');
+    const ean = z.string().transform((s) => s.replace(/\D/g, '')).pipe(z.string().regex(/^\d{8,14}$/, 'Código de barras inválido (8 a 14 dígitos).')).parse(codigo);
+    const p = await db.produto.findFirst({ where: { ean }, select: { id: true } });
+    if (p) return `/admin/produtos/${p.id}?bipado=1`;
+    const x = new URLSearchParams({ ean });
+    for (const base of ['world.openbeautyfacts.org', 'world.openfoodfacts.org']) {
+      try {
+        const res = await fetch(`https://${base}/api/v2/product/${ean}.json?fields=product_name,brands`, { signal: AbortSignal.timeout(3000), headers: { 'user-agent': 'PainelFarmacia/1.0' } });
+        const j = (await res.json()) as { status?: number; product?: { product_name?: string; brands?: string } };
+        if (j.status === 1 && j.product?.product_name) { x.set('nome', j.product.product_name.slice(0, 150)); if (j.product.brands) x.set('marca', j.product.brands.split(',')[0].trim().slice(0, 60)); break; }
+      } catch { /* sem dados externos: segue só com o código */ }
+    }
+    return `/admin/produtos/novo?${x}`;
+  });
+  if (!r.ok) return r;
+  redirect(r.dados!);
+}
+
+// ─────────────── WhatsApp da loja ───────────────
+
+export async function responderWhatsAcao(alvo: { conversaId?: string; numero?: string }, texto: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('atendimento');
+    const { limitarTaxa } = await import('@/server/auth');
+    limitarTaxa(`whats:${u.id}`, 120, 60_000);
+    const { responder } = await import('@/server/whatsapp/conversas');
+    return responder(u.id, { conversaId: alvo.conversaId ? uuid.parse(alvo.conversaId) : undefined, numero: alvo.numero ? z.string().max(20).parse(alvo.numero) : undefined }, z.string().parse(texto));
+  });
+}
+
+export async function conectarWhatsAcao() {
+  return executar(async () => {
+    const u = await exigirPermissao('configuracoes');
+    const { conectar } = await import('@/server/whatsapp/evolution');
+    const r = await conectar(u.id);
+    await auditar('whatsapp.conectar', { usuarioId: u.id });
+    return r;
+  });
+}
+
+export async function desconectarWhatsAcao() {
+  return executar(async () => {
+    const u = await exigirPermissao('configuracoes');
+    const { desconectar } = await import('@/server/whatsapp/evolution');
+    await desconectar();
+    await auditar('whatsapp.desconectar', { usuarioId: u.id });
+    refresh();
+  }, 'WhatsApp desconectado');
+}
+
+export async function salvarEvolutionAcao(_: unknown, form: FormData) {
+  return executar(async () => {
+    const u = await exigirPermissao('configuracoes');
+    const { salvarSegredo, INTEGRACOES } = await import('@/server/integracoes');
+    const url = String(form.get('url') ?? '').trim().replace(/\/+$/, '');
+    const chave = String(form.get('chave') ?? '').trim();
+    if (!INTEGRACOES.EVOLUTION_URL.formato.test(url)) throw new ErroNegocio('Endereço inválido. Use https://seu-servidor.com');
+    await salvarSegredo('EVOLUTION_URL', url, u.id);
+    if (chave) {
+      if (!INTEGRACOES.EVOLUTION_API_KEY.formato.test(chave)) throw new ErroNegocio('Chave inválida.');
+      await salvarSegredo('EVOLUTION_API_KEY', chave, u.id);
+    }
+    refresh();
+  }, 'Servidor do WhatsApp salvo');
+}
+
+// ─────────────── Financeiro ───────────────
+
+const dataBR = (v: FormDataEntryValue | null) => { const s = String(v ?? ''); if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new ErroNegocio('Data inválida.'); return new Date(`${s}T12:00:00-03:00`); };
+const uuidOpc = (v: FormDataEntryValue | null) => (v ? uuid.parse(String(v)) : null);
+
+export async function salvarLancamentoAcao(_: unknown, form: FormData) {
+  return executar(async () => {
+    const u = await exigirPermissao('financeiro');
+    const f = await import('@/server/financeiro');
+    const c = campos(form);
+    const tipo = z.enum(['RECEITA', 'DESPESA']).parse(c.tipo);
+    const descricao = z.string().trim().min(2, 'Descreva o lançamento').max(150).parse(c.descricao);
+    const modo = c.modo ?? 'unico';
+    const n = Math.max(1, Math.min(60, Number(c.vezes) || 1));
+    await f.criarLancamento({
+      tipo, descricao, valor: centavos(form.get('valor')), vencimento: dataBR(form.get('vencimento')), competencia: c.competencia ? dataBR(form.get('competencia')) : undefined,
+      categoriaId: uuid.parse(c.categoriaId), contaId: uuidOpc(form.get('contaId')), fornecedorId: uuidOpc(form.get('fornecedorId')), funcionarioId: uuidOpc(form.get('funcionarioId')),
+      pessoa: c.pessoa || null, documento: c.documento || null, observacao: c.observacao || null, formaPagamento: c.formaPagamento || null,
+      parcelas: modo === 'parcelado' ? n : 1, repetirMeses: modo === 'mensal' ? n : 1, jaPago: form.get('jaPago') === 'on',
+    }, u.id);
+    refresh();
+  }, 'Lançamento salvo');
+}
+
+export async function baixarLancamentoAcao(id: string, _: unknown, form: FormData) {
+  return executar(async () => {
+    const u = await exigirPermissao('financeiro');
+    const { baixarLancamento } = await import('@/server/financeiro');
+    await baixarLancamento(uuid.parse(id), { pagoEm: dataBR(form.get('pagoEm')), valorPago: centavos(form.get('valorPago')), contaId: uuidOpc(form.get('contaId')), formaPagamento: String(form.get('formaPagamento') || '') || null }, u.id);
+    refresh();
+  }, 'Baixa registrada');
+}
+
+export async function reabrirLancamentoAcao(id: string) {
+  return executar(async () => { const u = await exigirPermissao('financeiro'); const f = await import('@/server/financeiro'); await f.reabrirLancamento(uuid.parse(id), u.id); refresh(); }, 'Lançamento reaberto');
+}
+
+export async function cancelarLancamentoAcao(id: string) {
+  return executar(async () => { const u = await exigirPermissao('financeiro'); const f = await import('@/server/financeiro'); await f.cancelarLancamento(uuid.parse(id), u.id); refresh(); }, 'Lançamento cancelado');
+}
+
+export async function salvarContaFinanceiraAcao(_: unknown, form: FormData) {
+  return executar(async () => {
+    const u = await exigirPermissao('financeiro');
+    const c = campos(form);
+    const dados = { nome: z.string().trim().min(2).max(60).parse(c.nome), tipo: z.enum(['CAIXA', 'BANCO', 'CARTEIRA']).parse(c.tipo), saldoInicial: centavos(form.get('saldoInicial')), ativa: form.get('inativa') !== 'on' };
+    const id = uuidOpc(form.get('id'));
+    if (id) await db.contaFinanceira.update({ where: { id }, data: dados }); else await db.contaFinanceira.create({ data: dados });
+    await auditar('financeiro.conta', { usuarioId: u.id, detalhes: { nome: dados.nome } });
+    refresh();
+  }, 'Conta salva');
+}
+
+export async function salvarCategoriaFinanceiraAcao(_: unknown, form: FormData) {
+  return executar(async () => {
+    await exigirPermissao('financeiro');
+    const { GRUPOS } = await import('@/server/financeiro');
+    const c = campos(form);
+    const dados = { nome: z.string().trim().min(2).max(60).parse(c.nome), tipo: z.enum(['RECEITA', 'DESPESA']).parse(c.tipo), grupo: z.string().refine((g) => g in GRUPOS).parse(c.grupo) };
+    try { await db.categoriaFinanceira.create({ data: dados }); } catch { throw new ErroNegocio('Já existe uma categoria com esse nome.'); }
+    refresh();
+  }, 'Categoria criada');
+}
+
+export async function gerarFolhaAcao(_: unknown, form: FormData) {
+  return executar(async () => {
+    const u = await exigirPermissao('financeiro');
+    const { gerarFolha } = await import('@/server/financeiro');
+    const n = await gerarFolha(String(form.get('mes') ?? ''), u.id);
+    refresh();
+    return n;
+  }, 'Folha gerada em contas a pagar (funcionários que já tinham folha no mês foram ignorados)');
+}
+
+export async function gerarRepassesAcao(de: string, ate: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('financeiro');
+    const { gerarRepasses } = await import('@/server/financeiro');
+    const n = await gerarRepasses(new Date(`${de}T00:00:00-03:00`), new Date(new Date(`${ate}T00:00:00-03:00`).getTime() + 86_400_000), u.id);
+    refresh();
+    return n;
+  }, 'Repasses dos motoboys lançados em contas a pagar');
+}
+
+// ─────────────── Funcionários ───────────────
+
+export async function salvarFuncionarioAcao(_: unknown, form: FormData) {
+  const p = z.object({
+    nome: z.string().trim().min(3).max(120), cargo: z.string().trim().min(2).max(60), setor: z.string().max(60).optional(),
+    tipoContrato: z.enum(['CLT', 'PJ', 'ESTAGIO', 'TEMPORARIO', 'AUTONOMO']), telefone: z.string().max(20).optional(), email: z.string().max(120).optional(),
+    rg: z.string().max(20).optional(), endereco: z.string().max(200).optional(), jornada: z.string().max(60).optional(), escala: z.string().max(120).optional(),
+    crf: z.string().max(30).optional(), observacoes: z.string().max(1000).optional(),
+  }).safeParse(campos(form));
+  if (!p.success) return errosZod(p.error);
+  const r = await executar(async () => {
+    const u = await exigirPermissao('funcionarios');
+    const { cifrar } = await import('@/server/cripto');
+    const { cpfValido } = await import('@/lib/texto');
+    const cpf = String(form.get('cpf') ?? '').replace(/\D/g, '');
+    if (cpf && !cpfValido(cpf)) throw new ErroNegocio('CPF inválido.');
+    const pix = String(form.get('pix') ?? '').trim();
+    const d = p.data;
+    const opc = (v?: string) => (v?.trim() ? v.trim() : null);
+    const dados = {
+      nome: d.nome, cargo: d.cargo, setor: opc(d.setor), tipoContrato: d.tipoContrato, telefone: opc(d.telefone), email: opc(d.email), rg: opc(d.rg), endereco: opc(d.endereco),
+      jornada: opc(d.jornada), escala: opc(d.escala), crf: opc(d.crf), observacoes: opc(d.observacoes),
+      admissao: dataBR(form.get('admissao')), nascimento: form.get('nascimento') ? dataBR(form.get('nascimento')) : null,
+      salario: centavos(form.get('salario')), valeTransporte: centavos(form.get('valeTransporte')), valeRefeicao: centavos(form.get('valeRefeicao')), outrosBeneficios: centavos(form.get('outrosBeneficios')),
+      usuarioId: uuidOpc(form.get('usuarioId')),
+      ...(cpf ? { cpfCifrado: cifrar(cpf) } : {}), ...(pix ? { pixCifrado: cifrar(pix) } : {}),
+    };
+    const id = uuidOpc(form.get('id'));
+    try {
+      const f = id ? await db.funcionario.update({ where: { id }, data: dados }) : await db.funcionario.create({ data: dados });
+      await auditar(id ? 'funcionario.editado' : 'funcionario.criado', { usuarioId: u.id, alvo: f.id });
+      refresh();
+      return id ? null : f.id;
+    } catch (e) {
+      if ((e as { code?: string }).code === 'P2002') throw new ErroNegocio('Esse acesso ao sistema já está ligado a outro funcionário.');
+      throw e;
+    }
+  }, 'Funcionário salvo');
+  if (r.ok && r.dados) redirect(`/admin/funcionarios/${r.dados}`);
+  return r;
+}
+
+export async function desligarFuncionarioAcao(id: string, data?: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('funcionarios');
+    const quando = data && /^\d{4}-\d{2}-\d{2}$/.test(data) ? new Date(`${data}T12:00:00-03:00`) : new Date();
+    const f = await db.funcionario.update({ where: { id: uuid.parse(id) }, data: { ativo: false, demissao: quando } });
+    if (f.usuarioId) { await db.usuario.update({ where: { id: f.usuarioId }, data: { ativo: false } }); await db.sessao.deleteMany({ where: { usuarioId: f.usuarioId } }); }
+    await auditar('funcionario.desligado', { usuarioId: u.id, alvo: id });
+    refresh();
+  }, 'Funcionário desligado. O acesso ao sistema também foi bloqueado.');
+}
+
+export async function reativarFuncionarioAcao(id: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('funcionarios');
+    await db.funcionario.update({ where: { id: uuid.parse(id) }, data: { ativo: true, demissao: null } });
+    await auditar('funcionario.reativado', { usuarioId: u.id, alvo: id });
+    refresh();
+  }, 'Funcionário reativado');
+}
+
+export async function salvarOcorrenciaAcao(funcionarioId: string, _: unknown, form: FormData) {
+  return executar(async () => {
+    const u = await exigirPermissao('funcionarios');
+    const { TIPOS_OCORRENCIA } = await import('@/server/funcionarios');
+    const tipo = z.string().refine((t) => t in TIPOS_OCORRENCIA, 'Tipo inválido').parse(form.get('tipo'));
+    const inicio = dataBR(form.get('inicio'));
+    const fim = form.get('fim') ? dataBR(form.get('fim')) : null;
+    if (fim && fim < inicio) throw new ErroNegocio('A data final é antes da inicial.');
+    await db.ocorrenciaFuncionario.create({ data: { funcionarioId: uuid.parse(funcionarioId), tipo, inicio, fim, valor: TIPOS_OCORRENCIA[tipo].temValor ? centavos(form.get('valor')) || null : null, descricao: String(form.get('descricao') ?? '').slice(0, 500) || null, criadoPor: u.id } });
+    await auditar('funcionario.ocorrencia', { usuarioId: u.id, alvo: funcionarioId, detalhes: { tipo } });
+    refresh();
+  }, 'Registro adicionado');
+}
+
+export async function excluirOcorrenciaAcao(id: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('funcionarios');
+    await db.ocorrenciaFuncionario.delete({ where: { id: uuid.parse(id) } });
+    await auditar('funcionario.ocorrencia_excluida', { usuarioId: u.id, alvo: id });
+    refresh();
   });
 }

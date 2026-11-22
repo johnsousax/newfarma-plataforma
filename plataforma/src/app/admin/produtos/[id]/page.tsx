@@ -21,13 +21,23 @@ async function Conteudo({ params, searchParams }: PageProps<'/admin/produtos/[id
     db.categoria.findMany({ orderBy: [{ paiId: 'asc' }, { nome: 'asc' }], select: { id: true, nome: true, pai: { select: { nome: true } } } }),
   ]);
   const cats = categorias.map((c) => ({ id: c.id, nome: c.pai ? `${c.pai.nome} › ${c.nome}` : c.nome })).sort((a, b) => a.nome.localeCompare(b.nome));
-  if (id === 'novo') return <><TituloPagina titulo="Novo produto" /><FormProduto marcas={marcas} categorias={cats} /></>;
+  if (id === 'novo') {
+    const pre = { ean: typeof sp.ean === 'string' ? sp.ean : undefined, nome: typeof sp.nome === 'string' ? sp.nome : undefined, marcaNome: typeof sp.marca === 'string' ? sp.marca : undefined };
+    return (
+      <>
+        <TituloPagina titulo="Novo produto" />
+        {pre.ean && <Aviso tipo="info" className="mb-4">Código {pre.ean} ainda não está cadastrado.{pre.nome ? ' Nome e marca vieram de bases públicas: confira antes de salvar.' : ' Complete os dados do produto.'}</Aviso>}
+        <FormProduto produto={pre.ean ? pre : undefined} marcas={marcas} categorias={cats} />
+      </>
+    );
+  }
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const p = await db.produto.findUnique({ where: { id }, include: { historicoPreco: { orderBy: { criadoEm: 'desc' }, take: 10 }, imagens: { select: { id: true, tamanho: true }, orderBy: { ordem: 'asc' } } } });
   if (!p) notFound();
   return (
     <>
       <TituloPagina titulo={p.nome} subtitulo={<><Link href={`/produto/${p.slug}`} className="link" target="_blank">Ver na loja ↗</Link> · <Link href={`/admin/estoque?produto=${p.id}`} className="link">Estoque e lotes</Link></>} />
+      {sp.bipado && <Aviso tipo="info" className="mb-4">Produto encontrado pelo código de barras.</Aviso>}
       {sp.salvo && <Aviso tipo="sucesso" className="mb-4">Produto salvo.</Aviso>}
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <FormProduto produto={p} marcas={marcas} categorias={cats} />

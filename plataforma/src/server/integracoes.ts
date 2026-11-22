@@ -6,6 +6,9 @@ import { auditar } from './auditoria';
 /** Integrações configuráveis pelo painel. O valor fica cifrado no banco (AES-256-GCM). */
 export const INTEGRACOES = {
   ANTHROPIC_API_KEY: { nome: 'Assistente virtual (Anthropic / Claude)', formato: /^sk-ant-[A-Za-z0-9_-]{20,}$/ },
+  EVOLUTION_URL: { nome: 'WhatsApp · endereço do servidor Evolution API', formato: /^https:\/\/[\w.-]+(:\d+)?(\/[\w./-]*)?$/ },
+  EVOLUTION_API_KEY: { nome: 'WhatsApp · chave da Evolution API', formato: /^\S{10,200}$/ },
+  WHATSAPP_WEBHOOK_TOKEN: { nome: 'WhatsApp · token interno do webhook', formato: /^[\w-]{24,}$/ },
 } as const;
 export type ChaveIntegracao = keyof typeof INTEGRACOES;
 

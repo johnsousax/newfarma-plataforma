@@ -5,7 +5,6 @@ import { db } from '@/server/db';
 import { paginaAdmin } from '@/server/auth';
 import { GavetaAdmin } from '@/components/admin/GavetaAdmin';
 import { MenuAdmin, type ItemMenu } from '@/components/admin/MenuAdmin';
-import { Icone } from '@/components/icones';
 import { sairAcao } from '@/app/acoes/conta';
 import { pode, PAPEL, type Permissao } from '@/lib/dominio';
 import { matrizPermissoes } from '@/server/permissoes';
@@ -18,7 +17,7 @@ const ITENS: (Omit<ItemMenu, 'contador'> & { perm: Permissao })[] = [
   { href: '/admin/pedidos', icone: 'pedidos', rotulo: 'Pedidos', grupo: 'Operação', perm: 'pedidos' },
   { href: '/admin/entregas', icone: 'entregas', rotulo: 'Entregas', grupo: 'Operação', perm: 'entregas' },
   { href: '/admin/receitas', icone: 'receitas', rotulo: 'Receitas', grupo: 'Operação', perm: 'verReceitas' },
-  { href: '/admin/atendimento', icone: 'atendimento', rotulo: 'Atendimento', grupo: 'Operação', perm: 'atendimento' },
+  { href: '/admin/whatsapp', icone: 'whatsapp', rotulo: 'WhatsApp', grupo: 'Operação', perm: 'atendimento' },
   { href: '/admin/pdv', icone: 'pdv', rotulo: 'PDV / Caixa', grupo: 'Operação', perm: 'pdv' },
   { href: '/admin/estoque', icone: 'estoque', rotulo: 'Estoque', grupo: 'Operação', perm: 'estoque' },
   { href: '/admin/produtos', icone: 'produtos', rotulo: 'Produtos e preços', grupo: 'Catálogo', perm: 'produtos' },
@@ -27,6 +26,8 @@ const ITENS: (Omit<ItemMenu, 'contador'> & { perm: Permissao })[] = [
   { href: '/admin/compras', icone: 'compras', rotulo: 'Compras', grupo: 'Suprimentos', perm: 'compras' },
   { href: '/admin/fornecedores', icone: 'fornecedores', rotulo: 'Fornecedores', grupo: 'Suprimentos', perm: 'compras' },
   { href: '/admin/clientes', icone: 'clientes', rotulo: 'Clientes', grupo: 'Gestão', perm: 'clientes' },
+  { href: '/admin/financeiro', icone: 'financeiro', rotulo: 'Financeiro', grupo: 'Gestão', perm: 'financeiro' },
+  { href: '/admin/funcionarios', icone: 'funcionarios', rotulo: 'Funcionários', grupo: 'Gestão', perm: 'funcionarios' },
   { href: '/admin/notas', icone: 'notas', rotulo: 'Notas fiscais', grupo: 'Gestão', perm: 'notas' },
   { href: '/admin/relatorios', icone: 'relatorios', rotulo: 'Relatórios', grupo: 'Gestão', perm: 'relatorios' },
   { href: '/admin/anvisa', icone: 'anvisa', rotulo: 'ANVISA / SNGPC', grupo: 'Gestão', perm: 'anvisa' },
@@ -46,9 +47,9 @@ async function Lateral() {
     db.pedido.count({ where: { status: 'PAGO', ...(u.lojaId && u.papel !== 'ADMIN' ? { lojaId: u.lojaId } : {}) } }),
     db.avaliacao.count({ where: { status: 'PENDENTE' } }),
     u.lojaId ? db.loja.findUnique({ where: { id: u.lojaId }, select: { nome: true } }) : null,
-    db.conversa.count({ where: { status: 'AGUARDANDO_FARMACEUTICO' } }),
+    db.whatsappConversa.aggregate({ _sum: { naoLidas: true } }).then((r) => r._sum.naoLidas ?? 0),
   ]);
-  const contadores: Record<string, number> = { '/admin/atendimento': atendimento, '/admin/receitas': receitas, '/admin/pedidos': pagos, '/admin/avaliacoes': avaliacoes };
+  const contadores: Record<string, number> = { '/admin/whatsapp': atendimento, '/admin/receitas': receitas, '/admin/pedidos': pagos, '/admin/avaliacoes': avaliacoes };
   const matriz = await matrizPermissoes();
   const itens = ITENS.filter((i) => pode(u.papel, i.perm, matriz)).map(({ perm: _p, ...i }) => ({ ...i, contador: contadores[i.href] }));
   return (

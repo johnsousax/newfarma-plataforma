@@ -23,7 +23,10 @@ export function FormProduto({ produto, marcas, categorias }: { produto?: P; marc
         <Campo rotulo="Nome" erro={c.nome} className="md:col-span-2"><input name="nome" defaultValue={v('nome')} required className="campo" /></Campo>
         <Campo rotulo="SKU" erro={c.sku}><input name="sku" defaultValue={v('sku')} required className="campo uppercase" /></Campo>
         <Campo rotulo="EAN (código de barras)" erro={c.ean}><input name="ean" defaultValue={v('ean')} inputMode="numeric" className="campo" /></Campo>
-        <Campo rotulo="Marca"><select name="marcaId" defaultValue={v('marcaId')} className="campo">{marcas.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></Campo>
+        <Campo rotulo="Marca / laboratório" erro={c.marcaNome} ajuda="Escolha uma marca cadastrada ou digite uma nova: ela é criada ao salvar.">
+          <input name="marcaNome" list="lista-marcas" required autoComplete="off" defaultValue={marcas.find((m) => m.id === v('marcaId'))?.nome ?? v('marcaNome')} placeholder="Ex.: EMS, Medley, Neo Química" className="campo" />
+          <datalist id="lista-marcas">{marcas.map((m) => <option key={m.id} value={m.nome} />)}</datalist>
+        </Campo>
         <Campo rotulo="Categoria"><select name="categoriaId" defaultValue={v('categoriaId')} className="campo">{categorias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></Campo>
         <Campo rotulo="Ícone (quando não há foto)"><select name="icone" defaultValue={v('icone') || '💊'} className="campo">{OPCOES_ICONE_PRODUTO.map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></Campo>
         <Campo rotulo="Tags (separadas por vírgula)" ajuda="Ajudam na busca. Use “uso continuo” para permitir assinatura."><input name="tags" defaultValue={(produto?.tags as string[] | undefined)?.join(', ') ?? ''} className="campo" /></Campo>

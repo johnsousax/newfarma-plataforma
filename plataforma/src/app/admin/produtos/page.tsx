@@ -5,8 +5,9 @@ import { db } from '@/server/db';
 import { paginaAdmin } from '@/server/auth';
 import { disponibilidade } from '@/server/estoque';
 import { Badge, BotaoLink, Esqueleto, Paginacao, SeloClassificacao, TituloPagina } from '@/components/ui';
-import { BotaoAcao, FormAcao } from '@/components/admin/Acoes';
-import { alternarProdutoAtivo, criarMarca } from '@/app/acoes/admin';
+import { BotaoAcao } from '@/components/admin/Acoes';
+import { alternarProdutoAtivo } from '@/app/acoes/admin';
+import { BiparCodigo } from '@/components/admin/BiparCodigo';
 import { brl } from '@/lib/formato';
 import { normalizar } from '@/lib/texto';
 import type { Prisma } from '@/generated/prisma/client';
@@ -56,17 +57,10 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/admin/prod
         </table>
       </div>
       <Paginacao pagina={pagina} paginas={Math.ceil(total / 40)} href={(n) => `/admin/produtos?q=${encodeURIComponent(q)}&pagina=${n}${sp.inativos ? '&inativos=1' : ''}`} />
-      <details className="cartao mt-6 p-5">
-        <summary className="cursor-pointer font-semibold">+ Nova marca / laboratório</summary>
-        <FormAcao acao={criarMarca} rotulo="Criar marca" className="mt-3 flex flex-wrap items-end gap-3">
-          <input name="nome" required placeholder="Nome da marca" className="campo max-w-xs" />
-          <input name="fabricante" placeholder="Fabricante (opcional)" className="campo max-w-xs" />
-        </FormAcao>
-      </details>
     </>
   );
 }
 
 export default function Produtos(props: PageProps<'/admin/produtos'>) {
-  return <><TituloPagina titulo="Produtos e preços" subtitulo="Catálogo, classificação sanitária, preços (CMED) e margens" acoes={<BotaoLink href="/admin/produtos/novo">+ Novo produto</BotaoLink>} /><Suspense fallback={<Esqueleto className="h-96" />}><Conteudo searchParams={props.searchParams} /></Suspense></>;
+  return <><TituloPagina titulo="Produtos e preços" subtitulo="Catálogo, classificação sanitária, preços (CMED) e margens" acoes={<div className="flex flex-wrap items-center gap-2"><BiparCodigo /><BotaoLink href="/admin/produtos/novo">+ Novo produto</BotaoLink></div>} /><Suspense fallback={<Esqueleto className="h-96" />}><Conteudo searchParams={props.searchParams} /></Suspense></>;
 }

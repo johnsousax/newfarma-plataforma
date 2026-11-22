@@ -15,6 +15,8 @@ import { linhaEndereco, linkMapa, type EnderecoPedido } from '@/lib/endereco';
 import { brl, dataHora } from '@/lib/formato';
 import { minutosDesde } from '@/lib/tempo';
 import { pode } from '@/lib/dominio';
+import { lerPeriodo } from '@/lib/periodo';
+import { FiltroPeriodo } from '@/components/FiltroPeriodo';
 
 export const metadata = { title: 'Entregas' };
 
@@ -89,15 +91,16 @@ function CamposMotoboy({ m }: { m?: { id: string; nome: string; telefone: string
   );
 }
 
-async function Motoboys() {
-  const inicioMes = new Date(); inicioMes.setDate(1); inicioMes.setHours(0, 0, 0, 0);
+async function Motoboys({ sp }: { sp: Record<string, string | string[] | undefined> }) {
+  const per = lerPeriodo(sp, 'mes');
   const [lista, rep, loja] = await Promise.all([
     db.motoboy.findMany({ orderBy: [{ ativo: 'desc' }, { nome: 'asc' }], include: { pedidos: { where: { status: 'SAIU_PARA_ENTREGA' }, select: { numero: true } } } }),
-    repasses(inicioMes, new Date()),
+    repasses(per.inicio, per.fim),
     db.loja.findFirst({ where: { ativa: true, centroDistribuicao: false }, orderBy: { criadoEm: 'asc' }, select: { latitude: true, longitude: true } }),
   ]);
   return (
     <div className="space-y-4">
+      <FiltroPeriodo base="/admin/entregas" atual={per.chave} de={per.de} ate={per.ate} extras={{ aba: 'motoboys' }} />
       {!lista.length && <Vazio icone="motoboy" titulo="Nenhum motoboy cadastrado" />}
       <div className="grid gap-3 lg:grid-cols-2">
         {lista.map((m) => {
@@ -114,7 +117,7 @@ async function Motoboys() {
                 <Badge cor={m.pedidos.length ? 'violet' : 'emerald'}>{m.pedidos.length ? `Em rota: ${m.pedidos.map((p) => `#${p.numero}`).join(', ')}` : 'Livre'}</Badge>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="rounded-xl bg-slate-50 p-2"><p className="text-lg font-bold">{r?.entregas ?? 0}</p>entregas no mês</div>
+                <div className="rounded-xl bg-slate-50 p-2"><p className="text-lg font-bold">{r?.entregas ?? 0}</p>entregas · {per.rotulo.toLowerCase()}</div>
                 <div className="rounded-xl bg-slate-50 p-2"><p className="text-lg font-bold">{brl(r?.repasse ?? 0)}</p>a repassar</div>
                 <div className="rounded-xl bg-slate-50 p-2"><p className="text-lg font-bold">{brl(r?.fretes ?? 0)}</p>fretes cobrados</div>
               </div>
@@ -220,7 +223,8 @@ async function Conteudo({ searchParams }: { searchParams: SP }) {
   await connection();
   const u = await paginaAdmin('entregas');
   const matriz = await matrizPermissoes();
-  const aba = (await searchParams).aba;
+  const sp = await searchParams;
+  const aba = sp.aba;
   const abas = ABAS.filter((a) => a.id !== 'bairros' || pode(u.papel, 'lojas', matriz));
   const atual = abas.find((a) => a.id === aba)?.id ?? 'despacho';
   return (
@@ -228,7 +232,7 @@ async function Conteudo({ searchParams }: { searchParams: SP }) {
       <nav className="flex flex-wrap gap-2">
         {abas.map((a) => <Link key={a.id} href={`/admin/entregas?aba=${a.id}`} className={cx('inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm', a.id === atual ? 'bg-slate-900 font-semibold text-white' : 'bg-white ring-1 ring-slate-200')}><Icone nome={a.icone} className="h-4 w-4" />{a.rotulo}</Link>)}
       </nav>
-      {atual === 'despacho' ? <Despacho /> : atual === 'motoboys' ? <Motoboys /> : <Bairros />}
+      {atual === 'despacho' ? <Despacho /> : atual === 'motoboys' ? <Motoboys sp={sp} /> : <Bairros />}
     </div>
   );
 }

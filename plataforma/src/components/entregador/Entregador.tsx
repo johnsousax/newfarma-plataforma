@@ -48,3 +48,25 @@ export function ConfirmarEntrega({ token, pedidoId }: { token: string; pedidoId:
     </div>
   );
 }
+
+type EventoInstalar = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
+
+/** Botão "Instalar app" (Android/Chrome) ou instrução para iPhone. */
+export function InstalarApp() {
+  const [evento, setEvento] = useState<EventoInstalar | null>(null);
+  const [instalado, setInstalado] = useState(false);
+  const [ios, setIos] = useState(false);
+  useEffect(() => {
+    const standalone = matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone;
+    setInstalado(!!standalone); // eslint-disable-line react-hooks/set-state-in-effect
+    setIos(/iphone|ipad|ipod/i.test(navigator.userAgent));
+    const f = (e: Event) => { e.preventDefault(); setEvento(e as EventoInstalar); };
+    window.addEventListener('beforeinstallprompt', f);
+    window.addEventListener('appinstalled', () => setInstalado(true));
+    return () => window.removeEventListener('beforeinstallprompt', f);
+  }, []);
+  if (instalado) return null;
+  if (evento) return <Botao variante="escuro" bloco onClick={async () => { await evento.prompt(); setEvento(null); }}><Icone nome="instalar" />Instalar o app de entregas</Botao>;
+  if (ios) return <p className="rounded-xl bg-marca-50 p-3 text-xs text-marca-800"><strong>Instale como app:</strong> toque em Compartilhar e depois em &quot;Adicionar à Tela de Início&quot;.</p>;
+  return null;
+}

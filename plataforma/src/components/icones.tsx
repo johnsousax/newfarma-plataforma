@@ -6,11 +6,14 @@ import {
   Mic, MicOff, Microscope, Milk, Moon, Navigation, Nut, Package, Paperclip, PartyPopper, Pencil, Percent, Phone, Pill, Plug, Plus, Printer, QrCode,
   Receipt, Repeat, Route, ScrollText, Scissors, Search, Send, Settings, ShieldCheck, ShoppingCart, Siren, Smile, Sparkles, SprayCan, Star, Stethoscope,
   Store, Sun, Tag, TestTube, Thermometer, Trash2, Truck, Upload, User, UserCog, Users, Wallet, Wand2, Wind, X, Zap, Droplet, Droplets,
+  ScanBarcode, ArrowLeft, CalendarDays, Briefcase, TrendingUp, TrendingDown, Download, CheckCheck, Smartphone, QrCode as QrCode2, PiggyBank, BadgeDollarSign,
   type LucideIcon,
 } from 'lucide-react';
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 
 export const ICONES = {
+  voltar: ArrowLeft, codigoBarras: ScanBarcode, calendario: CalendarDays, funcionarios: Briefcase, entrada: TrendingUp, saida: TrendingDown, instalar: Download,
+  lido: CheckCheck, celular: Smartphone, qrcode: QrCode2, financeiro: PiggyBank, cobranca: BadgeDollarSign,
   // navegação e ações
   painel: LayoutDashboard, pedidos: Package, receitas: ClipboardList, atendimento: Stethoscope, pdv: Receipt, estoque: Boxes, produtos: Pill,
   marketing: Megaphone, avaliacoes: Star, compras: Truck, fornecedores: Factory, clientes: Users, relatorios: ChartLine, anvisa: Landmark,

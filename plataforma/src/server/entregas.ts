@@ -50,6 +50,6 @@ export async function registrarPosicao(token: string, lat: number, lng: number) 
 
 /** Repasse por motoboy num período (entregas concluídas). */
 export async function repasses(inicio: Date, fim: Date) {
-  const g = await db.pedido.groupBy({ by: ['motoboyId'], where: { motoboyId: { not: null }, status: 'ENTREGUE', entregueEm: { gte: inicio, lte: fim } }, _count: true, _sum: { taxaMotoboy: true, frete: true } });
+  const g = await db.pedido.groupBy({ by: ['motoboyId'], where: { motoboyId: { not: null }, status: 'ENTREGUE', entregueEm: { gte: inicio, lt: fim } }, _count: true, _sum: { taxaMotoboy: true, frete: true } });
   return new Map(g.map((x) => [x.motoboyId!, { entregas: x._count, repasse: x._sum.taxaMotoboy ?? 0, fretes: x._sum.frete ?? 0 }]));
 }

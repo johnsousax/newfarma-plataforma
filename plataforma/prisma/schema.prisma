@@ -733,6 +733,7 @@ model Fornecedor {
   ativo            Boolean        @default(true)
   criadoEm         DateTime       @default(now())
   compras          PedidoCompra[]
+  lancamentos      Lancamento[]
 }
 
 model PedidoCompra {
@@ -993,4 +994,171 @@ model NotaFiscal {
 
   @@unique([modelo, serie, numero, ambiente])
   @@index([pedidoId])
+}
+
+// ─────────────────────────────── WhatsApp da loja ───────────────────────────────
+
+enum StatusMensagemWhats {
+  ENVIANDO
+  ENVIADA
+  ENTREGUE
+  LIDA
+  ERRO
+  RECEBIDA
+}
+
+model WhatsappConversa {
+  id             String             @id @default(uuid())
+  /// Número com DDI, só dígitos
+  telefone       String             @unique
+  nome           String?
+  usuarioId      String?
+  ultimaPrevia   String?
+  ultimaEm       DateTime           @default(now())
+  naoLidas       Int                @default(0)
+  arquivada      Boolean            @default(false)
+  criadoEm       DateTime           @default(now())
+  mensagens      WhatsappMensagem[]
+
+  @@index([ultimaEm])
+}
+
+model WhatsappMensagem {
+  id          String              @id @default(uuid())
+  conversaId  String
+  conversa    WhatsappConversa    @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  externoId   String?             @unique
+  deMim       Boolean
+  /// texto | imagem | audio | video | documento | figurinha | outro
+  tipo        String              @default("texto")
+  /// Conteúdo cifrado (pode conter dados de saúde)
+  textoCifrado String?
+  midia       Bytes?
+  midiaMime   String?
+  arquivoNome String?
+  status      StatusMensagemWhats @default(RECEBIDA)
+  autorId     String?
+  criadoEm    DateTime            @default(now())
+
+  @@index([conversaId, criadoEm])
+}
+
+// ─────────────────────────────── Financeiro ───────────────────────────────
+
+enum TipoLancamento {
+  RECEITA
+  DESPESA
+}
+
+enum StatusLancamento {
+  ABERTO
+  PAGO
+  CANCELADO
+}
+
+/// Caixa, banco ou carteira digital
+model ContaFinanceira {
+  id           String       @id @default(uuid())
+  nome         String
+  tipo         String       @default("BANCO")
+  saldoInicial Int          @default(0)
+  ativa        Boolean      @default(true)
+  criadoEm     DateTime     @default(now())
+  lancamentos  Lancamento[]
+}
+
+/// Plano de contas. `grupo` organiza a DRE.
+model CategoriaFinanceira {
+  id          String         @id @default(uuid())
+  nome        String
+  tipo        TipoLancamento
+  grupo       String
+  ativa       Boolean        @default(true)
+  lancamentos Lancamento[]
+
+  @@unique([nome, tipo])
+}
+
+model Lancamento {
+  id             String              @id @default(uuid())
+  tipo           TipoLancamento
+  descricao      String
+  valor          Int
+  vencimento     DateTime
+  competencia    DateTime
+  status         StatusLancamento    @default(ABERTO)
+  pagoEm         DateTime?
+  valorPago      Int?
+  formaPagamento String?
+  documento      String?
+  observacao     String?
+  categoriaId    String
+  categoria      CategoriaFinanceira @relation(fields: [categoriaId], references: [id])
+  contaId        String?
+  conta          ContaFinanceira?    @relation(fields: [contaId], references: [id])
+  fornecedorId   String?
+  fornecedor     Fornecedor?         @relation(fields: [fornecedorId], references: [id])
+  funcionarioId  String?
+  funcionario    Funcionario?        @relation(fields: [funcionarioId], references: [id])
+  compraId       String?
+  /// Contraparte livre (cliente, prestador)
+  pessoa         String?
+  grupoParcelas  String?
+  parcela        Int?
+  totalParcelas  Int?
+  origem         String              @default("manual")
+  criadoPor      String?
+  criadoEm       DateTime            @default(now())
+
+  @@index([status, vencimento])
+  @@index([tipo, competencia])
+}
+
+// ─────────────────────────────── Funcionários (RH) ───────────────────────────────
+
+model Funcionario {
+  id               String                   @id @default(uuid())
+  nome             String
+  cpfCifrado       String?
+  rg               String?
+  nascimento       DateTime?
+  telefone         String?
+  email            String?
+  endereco         String?
+  cargo            String
+  setor            String?
+  tipoContrato     String                   @default("CLT")
+  admissao         DateTime
+  demissao         DateTime?
+  salario          Int
+  valeTransporte   Int                      @default(0)
+  valeRefeicao     Int                      @default(0)
+  outrosBeneficios Int                      @default(0)
+  jornada          String?
+  escala           String?
+  crf              String?
+  pixCifrado       String?
+  /// Acesso ao sistema (se tiver login)
+  usuarioId        String?                  @unique
+  ativo            Boolean                  @default(true)
+  observacoes      String?
+  criadoEm         DateTime                 @default(now())
+  ocorrencias      OcorrenciaFuncionario[]
+  lancamentos      Lancamento[]
+}
+
+model OcorrenciaFuncionario {
+  id            String      @id @default(uuid())
+  funcionarioId String
+  funcionario   Funcionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  /// FERIAS | FALTA | ATESTADO | ADVERTENCIA | HORA_EXTRA | BONUS | DESCONTO | AFASTAMENTO | ADIANTAMENTO
+  tipo          String
+  inicio        DateTime
+  fim           DateTime?
+  valor         Int?
+  descricao     String?
+  criadoPor     String?
+  criadoEm      DateTime    @default(now())
+
+  @@index([funcionarioId, inicio])
 }

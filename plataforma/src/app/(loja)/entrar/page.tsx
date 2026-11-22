@@ -26,7 +26,6 @@ export default function Entrar(props: PageProps<'/entrar'>) {
           <li>Recompra em um clique</li>
           <li>10% OFF na primeira compra com BEMVINDO10</li>
         </ul>
-        <p className="mt-6 rounded-xl bg-white/10 p-3 text-xs">Demonstração: cliente@farmacia.local · admin@farmacia.local · farmaceutico@farmacia.local · gerente@farmacia.local · atendente@farmacia.local (senha definida no .env).</p>
       </div>
     </div>
   );

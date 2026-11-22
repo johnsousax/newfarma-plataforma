@@ -25,11 +25,11 @@ async function Banners() {
 async function Categorias() {
   const cats = await menuCategorias();
   return (
-    <section className="mt-8 grid grid-cols-3 gap-3 sm:grid-cols-6">
+    <section className="mt-8 grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-6">
       {cats.map((c) => (
-        <Link key={c.id} href={`/categoria/${c.slug}`} className="cartao flex flex-col items-center gap-2 px-2 py-4 text-center transition hover:-translate-y-0.5 hover:shadow-md">
+        <Link key={c.id} href={`/categoria/${c.slug}`} className="cartao flex min-w-0 flex-col items-center gap-2 px-1.5 py-4 text-center transition hover:-translate-y-0.5 hover:shadow-md">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: `${c.cor}14`, color: c.cor }}><IconeProduto emoji={c.icone} className="h-7 w-7" /></span>
-          <span className="text-xs font-semibold text-slate-800 sm:text-sm">{c.nome}</span>
+          <span lang="pt-BR" className="w-full break-words text-[11px] font-semibold leading-tight text-slate-800 [hyphens:auto] sm:text-xs lg:text-sm">{c.nome}</span>
         </Link>
       ))}
     </section>

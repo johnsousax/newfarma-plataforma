@@ -6,7 +6,6 @@ import { usuarioAtual } from '@/server/auth';
 import { carrinhoAtual } from '@/server/carrinho';
 import { FARMACIA } from '@/lib/farmacia';
 import { linkWhatsLoja } from '@/server/configuracoes';
-import { EQUIPE } from '@/lib/dominio';
 import { CaixaBusca } from './CaixaBusca';
 import { LogoCompleto, SeloMarca } from '@/components/Logo';
 import { MenuLoja } from './MenuLoja';
@@ -34,9 +33,6 @@ async function AreaUsuario() {
   const primeiroNome = u?.nome.split(' ')[0];
   return (
     <div className="flex items-center gap-1 sm:gap-2">
-      {u && EQUIPE.includes(u.papel) && (
-        <Link href="/admin" className="hidden rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 md:block">Painel</Link>
-      )}
       <Link href={u ? '/conta' : '/entrar'} className="flex items-center gap-2 rounded-xl px-2 py-2 hover:bg-slate-100">
         <Icone nome="usuario" className="h-6 w-6 text-marca-600" />
         <span className="hidden text-left leading-tight lg:block">
@@ -81,11 +77,11 @@ export function Cabecalho() {
           </div>
         </div>
       </div>
-      <div className="container-loja flex items-center gap-3 py-3 sm:gap-6">
+      <div className="container-loja flex flex-wrap items-center gap-x-2 gap-y-2 py-2.5 sm:flex-nowrap sm:gap-6 sm:py-3">
         <Suspense fallback={<span className="h-11 w-11" />}><MenuPrincipal /></Suspense>
         <Logo />
-        <div className="flex-1"><Suspense fallback={<div className="h-12 rounded-2xl bg-slate-100" />}><CaixaBusca /></Suspense></div>
-        <Suspense fallback={<div className="h-10 w-24 rounded-xl bg-slate-100 sm:w-48" />}><AreaUsuario /></Suspense>
+        <div className="order-last w-full min-w-0 sm:order-none sm:w-auto sm:flex-1"><Suspense fallback={<div className="h-12 rounded-2xl bg-slate-100" />}><CaixaBusca /></Suspense></div>
+        <div className="ml-auto sm:ml-0"><Suspense fallback={<div className="h-10 w-24 rounded-xl bg-slate-100 sm:w-48" />}><AreaUsuario /></Suspense></div>
       </div>
     </header>
     </>

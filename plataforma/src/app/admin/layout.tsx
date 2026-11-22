@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { connection } from 'next/server';
 import { db } from '@/server/db';
 import { paginaAdmin } from '@/server/auth';
+import { GavetaAdmin } from '@/components/admin/GavetaAdmin';
 import { MenuAdmin, type ItemMenu } from '@/components/admin/MenuAdmin';
 import { Icone } from '@/components/icones';
 import { sairAcao } from '@/app/acoes/conta';
@@ -74,10 +75,7 @@ export default function LayoutAdmin({ children }: { children: React.ReactNode })
       </aside>
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-8">
-          <details className="relative lg:hidden">
-            <summary className="flex cursor-pointer list-none items-center rounded-lg p-1.5 hover:bg-slate-100" aria-label="Menu"><Icone nome="menu" className="h-6 w-6" /></summary>
-            <div className="absolute left-0 top-full z-50 mt-2 max-h-[80vh] w-72 overflow-y-auto rounded-2xl bg-slate-900 p-3 shadow-xl"><Suspense><Lateral /></Suspense></div>
-          </details>
+          <Suspense fallback={<span className="h-9 w-9 lg:hidden" />}><GavetaAdmin><Suspense><Lateral /></Suspense></GavetaAdmin></Suspense>
           <span className="text-sm text-slate-500">Painel administrativo</span>
           <Link href="/" className="text-sm font-semibold text-marca-700 hover:underline">Ver loja ↗</Link>
         </header>

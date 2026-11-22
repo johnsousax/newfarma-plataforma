@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icone, IconeProduto } from '@/components/icones';
@@ -14,6 +15,7 @@ export function MenuLoja({ categorias, whatsapp }: { categorias: Cat[]; whatsapp
   const caixa = useRef<HTMLDivElement>(null);
   const botao = useRef<HTMLButtonElement>(null);
   const rota = usePathname();
+  const noNavegador = useSyncExternalStore(() => () => {}, () => true, () => false);
 
   // fecha ao trocar de página (ajuste de estado durante a renderização, padrão do React)
   const [rotaAnterior, setRotaAnterior] = useState(rota);
@@ -37,9 +39,10 @@ export function MenuLoja({ categorias, whatsapp }: { categorias: Cat[]; whatsapp
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-marca-600 hover:bg-marca-50">
         <Icone nome={aberto ? 'fechar' : 'menu'} className="h-6 w-6" />
       </button>
-      <div className={cx('fixed inset-0 z-40 bg-marca-950/30 transition-opacity', aberto ? 'opacity-100' : 'pointer-events-none opacity-0')} aria-hidden />
+      {noNavegador && createPortal(<>
+      <div onClick={() => setAberto(false)} className={cx('fixed inset-0 z-[60] bg-marca-950/30 transition-opacity', aberto ? 'opacity-100' : 'pointer-events-none opacity-0')} aria-hidden />
       <nav id="menu-loja" ref={caixa} aria-label="Menu principal"
-        className={cx('fixed inset-y-0 left-0 z-50 flex w-80 max-w-[85vw] flex-col overflow-y-auto bg-white shadow-2xl transition-transform duration-200', aberto ? 'translate-x-0' : '-translate-x-full')}>
+        className={cx('fixed inset-y-0 left-0 z-[70] flex w-80 max-w-[85vw] flex-col overflow-y-auto bg-white shadow-2xl transition-transform duration-200', aberto ? 'translate-x-0' : '-translate-x-full')}>
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
           <span className="text-sm font-bold uppercase tracking-wider text-slate-500">Navegar</span>
           <button type="button" onClick={() => setAberto(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Fechar menu"><Icone nome="fechar" className="h-5 w-5" /></button>
@@ -78,6 +81,7 @@ export function MenuLoja({ categorias, whatsapp }: { categorias: Cat[]; whatsapp
           {whatsapp && <a href={whatsapp} target="_blank" rel="noopener noreferrer" className={item}><Icone nome="whatsapp" className="h-5 w-5" />Fale no WhatsApp</a>}
         </div>
       </nav>
+      </>, document.body)}
     </>
   );
 }

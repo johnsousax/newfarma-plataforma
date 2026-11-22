@@ -4,6 +4,7 @@ import { connection } from 'next/server';
 import { db } from '@/server/db';
 import { paginaAdmin } from '@/server/auth';
 import { MenuAdmin, type ItemMenu } from '@/components/admin/MenuAdmin';
+import { Icone } from '@/components/icones';
 import { sairAcao } from '@/app/acoes/conta';
 import { pode, PAPEL, type Permissao } from '@/lib/dominio';
 import { FARMACIA } from '@/lib/farmacia';
@@ -11,24 +12,24 @@ import { FARMACIA } from '@/lib/farmacia';
 export const metadata = { title: { default: 'Painel', template: '%s · Painel' }, robots: { index: false } };
 
 const ITENS: (Omit<ItemMenu, 'contador'> & { perm: Permissao })[] = [
-  { href: '/admin', icone: '📊', rotulo: 'Visão geral', grupo: 'Operação', perm: 'painel' },
-  { href: '/admin/pedidos', icone: '📦', rotulo: 'Pedidos', grupo: 'Operação', perm: 'pedidos' },
-  { href: '/admin/receitas', icone: '📋', rotulo: 'Receitas', grupo: 'Operação', perm: 'verReceitas' },
-  { href: '/admin/atendimento', icone: '🧑‍⚕️', rotulo: 'Atendimento', grupo: 'Operação', perm: 'atendimento' },
-  { href: '/admin/pdv', icone: '🧾', rotulo: 'PDV / Caixa', grupo: 'Operação', perm: 'pdv' },
-  { href: '/admin/estoque', icone: '🏷️', rotulo: 'Estoque', grupo: 'Operação', perm: 'estoque' },
-  { href: '/admin/produtos', icone: '💊', rotulo: 'Produtos e preços', grupo: 'Catálogo', perm: 'produtos' },
-  { href: '/admin/marketing', icone: '📣', rotulo: 'Promoções e cupons', grupo: 'Catálogo', perm: 'marketing' },
-  { href: '/admin/avaliacoes', icone: '⭐', rotulo: 'Avaliações', grupo: 'Catálogo', perm: 'avaliacoes' },
-  { href: '/admin/compras', icone: '🚚', rotulo: 'Compras', grupo: 'Suprimentos', perm: 'compras' },
-  { href: '/admin/fornecedores', icone: '🏭', rotulo: 'Fornecedores', grupo: 'Suprimentos', perm: 'compras' },
-  { href: '/admin/clientes', icone: '👥', rotulo: 'Clientes', grupo: 'Gestão', perm: 'clientes' },
-  { href: '/admin/relatorios', icone: '📈', rotulo: 'Relatórios', grupo: 'Gestão', perm: 'relatorios' },
-  { href: '/admin/anvisa', icone: '🏛️', rotulo: 'ANVISA / SNGPC', grupo: 'Gestão', perm: 'anvisa' },
-  { href: '/admin/equipe', icone: '👥', rotulo: 'Equipe', grupo: 'Administração', perm: 'equipe' },
-  { href: '/admin/lojas', icone: '🏬', rotulo: 'Lojas', grupo: 'Administração', perm: 'lojas' },
-  { href: '/admin/integracoes', icone: '🔌', rotulo: 'Integrações', grupo: 'Administração', perm: 'lojas' },
-  { href: '/admin/auditoria', icone: '🛡️', rotulo: 'Auditoria', grupo: 'Administração', perm: 'auditoria' },
+  { href: '/admin', icone: 'painel', rotulo: 'Visão geral', grupo: 'Operação', perm: 'painel' },
+  { href: '/admin/pedidos', icone: 'pedidos', rotulo: 'Pedidos', grupo: 'Operação', perm: 'pedidos' },
+  { href: '/admin/receitas', icone: 'receitas', rotulo: 'Receitas', grupo: 'Operação', perm: 'verReceitas' },
+  { href: '/admin/atendimento', icone: 'atendimento', rotulo: 'Atendimento', grupo: 'Operação', perm: 'atendimento' },
+  { href: '/admin/pdv', icone: 'pdv', rotulo: 'PDV / Caixa', grupo: 'Operação', perm: 'pdv' },
+  { href: '/admin/estoque', icone: 'estoque', rotulo: 'Estoque', grupo: 'Operação', perm: 'estoque' },
+  { href: '/admin/produtos', icone: 'produtos', rotulo: 'Produtos e preços', grupo: 'Catálogo', perm: 'produtos' },
+  { href: '/admin/marketing', icone: 'marketing', rotulo: 'Promoções e cupons', grupo: 'Catálogo', perm: 'marketing' },
+  { href: '/admin/avaliacoes', icone: 'avaliacoes', rotulo: 'Avaliações', grupo: 'Catálogo', perm: 'avaliacoes' },
+  { href: '/admin/compras', icone: 'compras', rotulo: 'Compras', grupo: 'Suprimentos', perm: 'compras' },
+  { href: '/admin/fornecedores', icone: 'fornecedores', rotulo: 'Fornecedores', grupo: 'Suprimentos', perm: 'compras' },
+  { href: '/admin/clientes', icone: 'clientes', rotulo: 'Clientes', grupo: 'Gestão', perm: 'clientes' },
+  { href: '/admin/relatorios', icone: 'relatorios', rotulo: 'Relatórios', grupo: 'Gestão', perm: 'relatorios' },
+  { href: '/admin/anvisa', icone: 'anvisa', rotulo: 'ANVISA / SNGPC', grupo: 'Gestão', perm: 'anvisa' },
+  { href: '/admin/equipe', icone: 'equipe', rotulo: 'Equipe', grupo: 'Administração', perm: 'equipe' },
+  { href: '/admin/lojas', icone: 'lojas', rotulo: 'Lojas', grupo: 'Administração', perm: 'lojas' },
+  { href: '/admin/integracoes', icone: 'integracoes', rotulo: 'Integrações', grupo: 'Administração', perm: 'lojas' },
+  { href: '/admin/auditoria', icone: 'auditoria', rotulo: 'Auditoria', grupo: 'Administração', perm: 'auditoria' },
 ];
 
 async function Lateral() {
@@ -68,7 +69,7 @@ export default function LayoutAdmin({ children }: { children: React.ReactNode })
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-8">
           <details className="relative lg:hidden">
-            <summary className="cursor-pointer list-none text-2xl">☰</summary>
+            <summary className="flex cursor-pointer list-none items-center rounded-lg p-1.5 hover:bg-slate-100" aria-label="Menu"><Icone nome="menu" className="h-6 w-6" /></summary>
             <div className="absolute left-0 top-full z-50 mt-2 max-h-[80vh] w-72 overflow-y-auto rounded-2xl bg-slate-900 p-3 shadow-xl"><Suspense><Lateral /></Suspense></div>
           </details>
           <span className="text-sm text-slate-500">Painel administrativo</span>

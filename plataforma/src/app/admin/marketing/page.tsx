@@ -79,7 +79,7 @@ async function Conteudo() {
         <div className="grid gap-3 md:grid-cols-2">
           {banners.map((b) => (
             <div key={b.id} className={`flex items-center justify-between gap-3 rounded-2xl p-4 text-white ${b.ativo ? '' : 'opacity-40'}`} style={{ background: `linear-gradient(120deg, ${b.corDe}, ${b.corPara})` }}>
-              <div><p className="font-bold">{b.icone} {b.titulo}</p><p className="text-xs text-white/80">{b.link} · ordem {b.ordem}</p></div>
+              <div><p className="font-bold">{b.titulo}</p><p className="text-xs text-white/80">{b.link} · ordem {b.ordem}</p></div>
               <BotaoAcao acao={alternarMarketing.bind(null, 'banner', b.id)}>{b.ativo ? 'Ocultar' : 'Exibir'}</BotaoAcao>
             </div>
           ))}
@@ -90,7 +90,7 @@ async function Conteudo() {
             <label className="md:col-span-2"><span className="rotulo">Subtítulo</span><input name="subtitulo" className="campo" /></label>
             <label><span className="rotulo">Texto do botão</span><input name="textoBotao" defaultValue="Aproveitar" className="campo" /></label>
             <label><span className="rotulo">Link</span><input name="link" defaultValue="/ofertas" className="campo" /></label>
-            <label><span className="rotulo">Ícone</span><input name="icone" defaultValue="💊" className="campo" /></label>
+            <input type="hidden" name="icone" value="" />
             <label><span className="rotulo">Ordem</span><input name="ordem" type="number" defaultValue={9} className="campo" /></label>
             <label><span className="rotulo">Cor inicial</span><input name="corDe" type="color" defaultValue="#088372" className="h-11 w-full rounded-xl" /></label>
             <label><span className="rotulo">Cor final</span><input name="corPara" type="color" defaultValue="#27bfa6" className="h-11 w-full rounded-xl" /></label>

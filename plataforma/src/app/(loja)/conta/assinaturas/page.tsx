@@ -6,6 +6,7 @@ import { exigirLogin } from '@/server/auth';
 import { Badge, Esqueleto, TituloPagina, Aviso } from '@/components/ui';
 import { FormAssinatura, BotaoAssinatura } from '@/components/conta/FormsConta';
 import { brl, data } from '@/lib/formato';
+import { IconeProduto } from '@/components/icones';
 
 export const metadata = { title: 'Uso contínuo' };
 
@@ -20,10 +21,10 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/conta/assi
   ]);
   return (
     <div className="space-y-4">
-      <Aviso tipo="info">🔁 Receba seus produtos de uso contínuo automaticamente com <strong>10% de desconto</strong>. Avisamos 2 dias antes de cada envio; você pode pausar quando quiser. Itens com receita passam pela validação do farmacêutico a cada ciclo.</Aviso>
+      <Aviso tipo="info">Receba seus produtos de uso contínuo automaticamente com <strong>10% de desconto</strong>. Avisamos 2 dias antes de cada envio; você pode pausar quando quiser. Itens com receita passam pela validação do farmacêutico a cada ciclo.</Aviso>
       {lista.map((a) => (
         <div key={a.id} className="cartao flex flex-wrap items-center gap-4 p-5">
-          <span className="text-3xl">{a.produto.icone}</span>
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-marca-50 text-marca-600"><IconeProduto emoji={a.produto.icone} className="h-6 w-6" /></span>
           <div className="min-w-0 flex-1">
             <Link href={`/produto/${a.produto.slug}`} className="font-semibold hover:text-marca-700">{a.produto.nome}</Link>
             <p className="text-sm text-slate-500">{a.quantidade} un. a cada {a.intervaloDias} dias · {brl(Math.round(a.produto.preco * a.quantidade * (1 - a.descontoPercentual / 100)))} por entrega{a.endereco ? ` · ${a.endereco.apelido}` : ''}</p>

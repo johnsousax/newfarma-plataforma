@@ -23,7 +23,7 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/carrinho'>
     const sugestoes = await vitrine('mais-vendidos', { limite: 10 });
     return (
       <>
-        <Vazio icone="🛒" titulo="Seu carrinho está vazio" texto="Que tal começar pelas ofertas da semana?" acao={<BotaoLink href="/ofertas">Ver ofertas</BotaoLink>} />
+        <Vazio icone="carrinho" titulo="Seu carrinho está vazio" texto="Que tal começar pelas ofertas da semana?" acao={<BotaoLink href="/ofertas">Ver ofertas</BotaoLink>} />
         <Prateleira titulo="Mais vendidos" produtos={sugestoes} />
       </>
     );
@@ -38,8 +38,8 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/carrinho'>
             <p>Faltam <strong>{brl(faltaFrete)}</strong> para ganhar <strong>frete grátis</strong> na entrega padrão (Grande SP).</p>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-marca-500" style={{ width: `${Math.min(100, ((r.subtotal - r.descontoPromocoes) / config.frete.gratisAcimaDe) * 100)}%` }} /></div>
           </div>
-        ) : <Aviso tipo="sucesso">🎉 Você ganhou <strong>frete grátis</strong> na entrega padrão!</Aviso>}
-        {r.exigeReceita && <Aviso tipo="info">📋 Seu carrinho tem medicamento que exige receita. Após finalizar, você envia a foto da receita e nosso farmacêutico valida antes do pagamento.</Aviso>}
+        ) : <Aviso tipo="sucesso">Você ganhou <strong>frete grátis</strong> na entrega padrão!</Aviso>}
+        {r.exigeReceita && <Aviso tipo="info">Seu carrinho tem medicamento que exige receita. Após finalizar, você envia a foto da receita e nosso farmacêutico valida antes do pagamento.</Aviso>}
         <ul className="cartao divide-y divide-slate-100">
           {r.linhas.map((l) => (
             <li key={l.produtoId} className="flex gap-4 p-4">
@@ -73,7 +73,7 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/carrinho'>
             <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-bold"><dt>Total sem frete</dt><dd>{brl(r.total)}</dd></div>
             {r.economia > 0 && <p className="text-right text-xs font-semibold text-emerald-700">Você economiza {brl(r.economia)}</p>}
           </dl>
-          {u && <p className="text-xs text-slate-600">⭐ Você ganha <strong>{r.pontosAGanhar} pontos</strong> e tem {u.pontos} para usar no checkout.</p>}
+          {u && <p className="text-xs text-slate-600">Você ganha <strong>{r.pontosAGanhar} pontos</strong> e tem {u.pontos} para usar no checkout.</p>}
           <BotaoLink href={u ? '/checkout' : '/entrar?voltar=/checkout'} bloco tamanho="lg" className={r.temIndisponivel ? 'pointer-events-none opacity-50' : ''}>Continuar para o pagamento</BotaoLink>
           {r.temIndisponivel && <p className="text-xs text-rose-600">Ajuste os itens sem estoque para continuar.</p>}
           <Link href="/" className="block text-center text-sm text-slate-600 underline">Continuar comprando</Link>

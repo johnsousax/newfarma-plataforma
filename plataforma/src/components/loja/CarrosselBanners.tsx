@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { IconeProduto } from '@/components/icones';
 
 type Banner = { id: string; titulo: string; subtitulo: string | null; textoBotao: string; link: string; corDe: string; corPara: string; icone: string };
 
@@ -24,7 +25,7 @@ export function CarrosselBanners({ banners }: { banners: Banner[] }) {
                 {b.subtitulo && <p className="mt-3 text-base text-white/90 sm:text-lg">{b.subtitulo}</p>}
                 <Link href={b.link} tabIndex={k === i ? 0 : -1} className="mt-6 inline-block rounded-xl bg-white px-6 py-3 font-bold text-slate-900 shadow-lg transition hover:scale-[1.02]">{b.textoBotao} →</Link>
               </div>
-              <div className="hidden text-[9rem] leading-none drop-shadow-xl md:block" aria-hidden>{b.icone}</div>
+              <div className="hidden text-white/90 md:block" aria-hidden><IconeProduto emoji={b.icone} className="h-36 w-36" /></div>
             </div>
           </div>
         ))}

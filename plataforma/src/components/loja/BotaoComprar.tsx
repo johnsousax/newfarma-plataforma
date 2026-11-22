@@ -3,6 +3,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { adicionarAoCarrinho } from '@/app/acoes/carrinho';
 import { cx } from '@/components/ui';
+import { Icone } from '@/components/icones';
 
 export function BotaoComprar({ produtoId, disponivel, controlado, compacto, quantidadeInicial = 1, comSeletor }: { produtoId: string; disponivel: number; controlado?: boolean; compacto?: boolean; quantidadeInicial?: number; comSeletor?: boolean }) {
   const [pendente, iniciar] = useTransition();
@@ -10,7 +11,7 @@ export function BotaoComprar({ produtoId, disponivel, controlado, compacto, quan
   const [qtd, setQtd] = useState(quantidadeInicial);
 
   if (controlado) {
-    return <Link href="/lojas" className="block rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-center text-sm font-semibold text-zinc-700 hover:bg-zinc-100">🔒 Somente na loja</Link>;
+    return <Link href="/lojas" className="block rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-center text-sm font-semibold text-zinc-700 hover:bg-zinc-100 flex items-center justify-center gap-1.5"><Icone nome="cadeado" className="h-3.5 w-3.5" />Somente na loja</Link>;
   }
   if (disponivel <= 0) {
     return <button disabled className="w-full cursor-not-allowed rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-400">Esgotado</button>;
@@ -19,7 +20,7 @@ export function BotaoComprar({ produtoId, disponivel, controlado, compacto, quan
   const comprar = () =>
     iniciar(async () => {
       const r = await adicionarAoCarrinho(produtoId, qtd);
-      setMsg(r.ok ? { ok: true, texto: 'Adicionado ✓' } : { ok: false, texto: r.erro });
+      setMsg(r.ok ? { ok: true, texto: 'Adicionado' } : { ok: false, texto: r.erro });
       setTimeout(() => setMsg(null), 2500);
     });
 

@@ -10,7 +10,7 @@ import { obterSegredo } from '../integracoes';
 const MODELO = process.env.ASSISTENTE_MODELO || 'claude-opus-5-5';
 
 export const RespostaAssistente = z.object({
-  tipo_entrada: z.enum(['foto_medicamento', 'foto_receita', 'pergunta', 'fora_do_assunto', 'imagem_ilegivel']),
+  tipo_entrada: z.enum(['foto_medicamento', 'foto_receita', 'pergunta', 'sintoma', 'fora_do_assunto', 'imagem_ilegivel']),
   emergencia: z.boolean(),
   resposta: z.string(),
   medicamentos: z.array(
@@ -18,11 +18,14 @@ export const RespostaAssistente = z.object({
       nome: z.string(),
       principio_ativo: z.string().nullable(),
       concentracao: z.string().nullable(),
-      para_que_serve_segundo_a_bula: z.string().nullable(),
+      indicacao: z.string().nullable(),
       venda: z.enum(['isento_de_prescricao', 'exige_receita', 'antibiotico_receita_retida', 'controlado_so_na_loja', 'nao_sei']),
       confianca: z.enum(['alta', 'media', 'baixa']),
     }),
   ),
+  /** Sintoma leve em adulto sem sinais de alerta: princípios ativos isentos de prescrição indicados */
+  sugestao_sintoma: z.object({ sintoma: z.string(), principios_ativos: z.array(z.string()) }).nullable(),
+  informacoes: z.array(z.string()),
   encaminhar_farmaceutico: z.boolean(),
   motivo_encaminhamento: z.string().nullable(),
 });
@@ -58,14 +61,14 @@ export async function testarChave(chave: string) {
 }
 
 /** Uma chamada ao modelo, com resposta estruturada e validada pelo schema. */
-export async function consultarIA(historico: Historico, pergunta: string, imagem?: Imagem): Promise<RespostaAssistente> {
+export async function consultarIA(historico: Historico, pergunta: string, imagem?: Imagem, nomeAssistente = 'Clara'): Promise<RespostaAssistente> {
   const mensagens: Anthropic.Beta.BetaMessageParam[] = historico.slice(-10).map((m) => ({
     role: m.autor === 'CLIENTE' ? 'user' : 'assistant',
     content: m.texto,
   }));
   const conteudo: Anthropic.Beta.BetaContentBlockParam[] = [];
   if (imagem) conteudo.push({ type: 'image', source: { type: 'base64', media_type: imagem.mime, data: imagem.base64 } });
-  conteudo.push({ type: 'text', text: pergunta || 'O que é este medicamento e para que serve, segundo a bula?' });
+  conteudo.push({ type: 'text', text: pergunta || 'O que é este medicamento e para que serve?' });
   mensagens.push({ role: 'user', content: conteudo });
 
   let r;
@@ -73,7 +76,7 @@ export async function consultarIA(historico: Historico, pergunta: string, imagem
     r = await (await api()).beta.messages.parse({
       model: MODELO,
       max_tokens: 4000,
-      system: [{ type: 'text', text: instrucoesSistema(FARMACIA.nome), cache_control: { type: 'ephemeral' } }],
+      system: [{ type: 'text', text: instrucoesSistema(FARMACIA.nome, nomeAssistente), cache_control: { type: 'ephemeral' } }],
       messages: mensagens,
       output_config: { effort: 'medium', format: betaZodOutputFormat(RespostaAssistente) },
       // Se um classificador de segurança recusar, o próprio servidor tenta o modelo de reserva
@@ -91,7 +94,7 @@ export async function consultarIA(historico: Historico, pergunta: string, imagem
   }
   if (r.stop_reason === 'refusal') {
     // Toda a cadeia recusou: trata como caso para o farmacêutico
-    return { tipo_entrada: 'pergunta', emergencia: false, resposta: '', medicamentos: [], encaminhar_farmaceutico: true, motivo_encaminhamento: 'Pergunta recusada pela política de segurança do modelo' };
+    return { tipo_entrada: 'pergunta', emergencia: false, resposta: '', medicamentos: [], sugestao_sintoma: null, informacoes: [], encaminhar_farmaceutico: true, motivo_encaminhamento: 'Pergunta recusada pela política de segurança do modelo' };
   }
   if (!r.parsed_output) throw new AssistenteIndisponivel('Resposta fora do formato esperado');
   return r.parsed_output;

@@ -2,6 +2,7 @@
 import { useActionState, useTransition, useState } from 'react';
 import { alterarQuantidade, aplicarCupom, removerCupom } from '@/app/acoes/carrinho';
 import { Aviso } from '@/components/ui';
+import { Icone } from '@/components/icones';
 
 export function SeletorQuantidade({ produtoId, quantidade, max }: { produtoId: string; quantidade: number; max: number }) {
   const [pendente, iniciar] = useTransition();
@@ -29,7 +30,7 @@ export function FormCupom({ codigo, erroCupom }: { codigo: string | null; erroCu
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between rounded-xl border border-dashed border-emerald-400 bg-emerald-50 px-3 py-2 text-sm">
-          <span>🏷️ <strong>{codigo}</strong></span>
+          <span className="flex items-center gap-2"><Icone nome="etiqueta" className="text-emerald-700" /><strong>{codigo}</strong></span>
           <button onClick={() => iniciar(async () => { await removerCupom(); })} className="text-xs underline">remover</button>
         </div>
         {erroCupom && <Aviso tipo="alerta">{erroCupom}</Aviso>}

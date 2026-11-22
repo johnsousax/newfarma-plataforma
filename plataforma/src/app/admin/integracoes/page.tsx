@@ -6,6 +6,7 @@ import { Aviso, Badge, Esqueleto, TituloPagina } from '@/components/ui';
 import { BotaoAcao, FormAcao } from '@/components/admin/Acoes';
 import { salvarChaveAnthropic, removerChaveAnthropic } from '@/app/acoes/admin';
 import { dataHora } from '@/lib/formato';
+import { Icone } from '@/components/icones';
 
 export const metadata = { title: 'Integrações' };
 
@@ -18,7 +19,7 @@ async function Conteudo() {
     <div className="max-w-3xl space-y-6">
       <section className="cartao space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-bold">🤖 Assistente virtual — chave da Anthropic (Claude)</h2>
+          <h2 className="flex items-center gap-2 text-lg font-bold"><Icone nome="assistente" className="h-5 w-5 text-marca-600" />Assistente virtual — chave da Anthropic (Claude)</h2>
           {anthropic.origem ? <Badge cor="emerald">Ativo · termina em …{anthropic.final}</Badge> : <Badge cor="amber">Não configurado</Badge>}
         </div>
         <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
@@ -37,7 +38,7 @@ async function Conteudo() {
 
       <section className="cartao space-y-3 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-bold">💳 Pagamentos — Getnet</h2>
+          <h2 className="flex items-center gap-2 text-lg font-bold"><Icone nome="cartao" className="h-5 w-5 text-marca-600" />Pagamentos — Getnet</h2>
           <Badge cor={getnet ? 'emerald' : 'amber'}>{getnet ? 'Credenciais cadastradas' : 'Credenciais ausentes'}</Badge>
         </div>
         {pagamentosSimulados() ? (

@@ -4,6 +4,7 @@ import { brl } from '@/lib/formato';
 import { parcelasPara } from '@/lib/farmacia';
 import { bandeiraCartao } from '@/lib/texto';
 import type { CartaoDigitado } from '@/lib/tokenizacao';
+import { Icone } from '@/components/icones';
 
 export function FormCartao({ total, valor, onChange }: { total: number; valor: CartaoDigitado; onChange: (c: CartaoDigitado) => void }) {
   const max = parcelasPara(total);
@@ -35,7 +36,7 @@ export function FormCartao({ total, valor, onChange }: { total: number; valor: C
           {Array.from({ length: max }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}x de {brl(Math.ceil(total / n))} sem juros</option>)}
         </select>
       </label>
-      <p className="text-xs text-slate-500">🔒 Os dados do cartão são convertidos em um token no seu navegador e não ficam guardados na farmácia.</p>
+      <p className="flex gap-1.5 text-xs text-slate-500"><Icone nome="cadeado" className="mt-0.5 h-3.5 w-3.5" />Os dados do cartão são convertidos em um token no seu navegador e não ficam guardados na farmácia.</p>
     </div>
   );
 }

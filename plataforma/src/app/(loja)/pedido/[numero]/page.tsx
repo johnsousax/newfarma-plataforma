@@ -11,6 +11,7 @@ import { EsqueletoPagina } from '@/components/loja/Esqueletos';
 import { STATUS_PEDIDO, MODALIDADE, METODO_PAGAMENTO } from '@/lib/dominio';
 import { brl, dataHora, data } from '@/lib/formato';
 import type { StatusPedido } from '@/generated/prisma/enums';
+import { Icone } from '@/components/icones';
 
 export const metadata = { title: 'Meu pedido' };
 
@@ -42,7 +43,7 @@ async function Conteudo({ params, searchParams }: PageProps<'/pedido/[numero]'>)
     <div className="space-y-6">
       {sp.novo && p.status !== 'CANCELADO' && (
         <div className="rounded-3xl bg-gradient-to-r from-marca-600 to-marca-500 p-6 text-white">
-          <p className="text-3xl">🎉</p>
+          <Icone nome="sucesso" className="h-9 w-9" />
           <h2 className="mt-1 text-2xl font-bold">Pedido #{p.numero} recebido!</h2>
           <p className="text-white/90">{st.cliente}</p>
         </div>
@@ -72,7 +73,7 @@ async function Conteudo({ params, searchParams }: PageProps<'/pedido/[numero]'>)
         <div className="space-y-6">
           {p.status === 'AGUARDANDO_RECEITA' && (
             <section className="cartao space-y-3 p-5">
-              <h2 className="text-lg font-bold">📋 Envie sua receita</h2>
+              <h2 className="flex items-center gap-2 text-lg font-bold"><Icone nome="receitas" className="h-5 w-5 text-marca-600" />Envie sua receita</h2>
               {receitaPendente ? (
                 <Aviso tipo="info">Recebemos sua receita em {dataHora(receitaPendente.criadoEm)}. Um farmacêutico está analisando — normalmente leva menos de 30 minutos no horário de atendimento.</Aviso>
               ) : (
@@ -86,13 +87,13 @@ async function Conteudo({ params, searchParams }: PageProps<'/pedido/[numero]'>)
           )}
           {p.status === 'AGUARDANDO_PAGAMENTO' && (
             <section className="cartao space-y-3 p-5">
-              <h2 className="text-lg font-bold">💳 Pagamento</h2>
+              <h2 className="flex items-center gap-2 text-lg font-bold"><Icone nome="cartao" className="h-5 w-5 text-marca-600" />Pagamento</h2>
               {pixPendente ? (
                 <CodigoPix pagamentoId={pixPendente.id} codigo={pixPendente.pixCopiaECola ?? ''} expiraEm={pixPendente.pixExpiraEm!.toISOString()} dev={pagamentosSimulados()} />
               ) : <PagarPedido pedidoId={p.id} total={p.total} />}
             </section>
           )}
-          {p.status === 'PRONTO_PARA_RETIRADA' && <Aviso tipo="sucesso">🏬 Seu pedido está pronto na <strong>{p.loja.nome}</strong> ({p.loja.logradouro}, {p.loja.numero}). Apresente um documento com foto{p.itens.some((i) => i.classificacao === 'ANTIMICROBIANO') ? ' e a 2ª via da receita' : ''}.</Aviso>}
+          {p.status === 'PRONTO_PARA_RETIRADA' && <Aviso tipo="sucesso">Seu pedido está pronto na <strong>{p.loja.nome}</strong> ({p.loja.logradouro}, {p.loja.numero}). Apresente um documento com foto{p.itens.some((i) => i.classificacao === 'ANTIMICROBIANO') ? ' e a 2ª via da receita' : ''}.</Aviso>}
 
           <section className="cartao p-5">
             <h2 className="mb-3 text-lg font-bold">Itens</h2>
@@ -131,7 +132,7 @@ async function Conteudo({ params, searchParams }: PageProps<'/pedido/[numero]'>)
             <div className="flex justify-between"><span>Frete</span><span>{p.frete ? brl(p.frete) : 'Grátis'}</span></div>
             <div className="flex justify-between border-t pt-2 text-base font-bold"><span>Total</span><span>{brl(p.total)}</span></div>
             {p.metodoPagamento && <p className="text-slate-500">{METODO_PAGAMENTO[p.metodoPagamento]}{p.pagamentos[0]?.cartaoFinal ? ` final ${p.pagamentos[0].cartaoFinal} · ${p.pagamentos[0].parcelas}x` : ''}</p>}
-            {p.pontosGanhos > 0 && <p className="font-semibold text-emerald-700">⭐ +{p.pontosGanhos} pontos ganhos</p>}
+            {p.pontosGanhos > 0 && <p className="font-semibold text-emerald-700">+{p.pontosGanhos} pontos ganhos</p>}
           </div>
           <div className="cartao space-y-1 p-5 text-sm">
             <h2 className="mb-1 font-bold">{p.modalidade === 'RETIRADA' ? 'Retirada' : 'Entrega'}</h2>

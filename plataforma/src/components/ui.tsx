@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { ComponentProps, ReactNode } from 'react';
+import { Lock } from 'lucide-react';
 import { brl, percentual } from '@/lib/formato';
+import { Icone, IconeProduto, type NomeIcone } from '@/components/icones';
 import { REGRAS } from '@/lib/dominio';
 import type { Classificacao } from '@/generated/prisma/enums';
 
@@ -53,7 +55,7 @@ export function Badge({ cor = 'slate', children, className }: { cor?: string; ch
 export function SeloClassificacao({ c, curto = true }: { c: Classificacao; curto?: boolean }) {
   if (c === 'NAO_MEDICAMENTO') return null;
   const r = REGRAS[c];
-  return <Badge cor={r.cor}>{c === 'CONTROLADO' ? '🔒 ' : ''}{curto ? r.curto : r.rotulo}</Badge>;
+  return <Badge cor={r.cor}>{c === 'CONTROLADO' && <Lock className="h-3 w-3" aria-hidden />}{curto ? r.curto : r.rotulo}</Badge>;
 }
 
 export function Preco({ preco, precoDe, tamanho = 'md' }: { preco: number; precoDe?: number | null; tamanho?: 'sm' | 'md' | 'lg' }) {
@@ -82,10 +84,10 @@ export function Estrelas({ nota, total, tamanho = 'sm' }: { nota: number | null;
   );
 }
 
-export function Vazio({ icone = '📭', titulo, texto, acao }: { icone?: string; titulo: string; texto?: string; acao?: ReactNode }) {
+export function Vazio({ icone = 'vazio', titulo, texto, acao }: { icone?: NomeIcone; titulo: string; texto?: string; acao?: ReactNode }) {
   return (
     <div className="cartao flex flex-col items-center px-6 py-14 text-center">
-      <div className="mb-3 text-5xl">{icone}</div>
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-marca-50 text-marca-600"><Icone nome={icone} className="h-7 w-7" /></div>
       <h3 className="text-lg font-semibold text-slate-900">{titulo}</h3>
       {texto ? <p className="mt-1 max-w-md text-sm text-slate-500">{texto}</p> : null}
       {acao ? <div className="mt-5">{acao}</div> : null}
@@ -158,8 +160,8 @@ export function ImagemProduto({ icone, cor = '#1B2A72', tamanho = 'md', classNam
     );
   }
   return (
-    <div className={cx('flex shrink-0 items-center justify-center', t, className)} style={{ background: `linear-gradient(135deg, ${cor}14, ${cor}2e)` }} aria-hidden>
-      <span className="drop-shadow-sm">{icone}</span>
+    <div className={cx('flex shrink-0 items-center justify-center', t, className)} style={{ background: `linear-gradient(135deg, ${cor}10, ${cor}24)`, color: cor }} aria-hidden>
+      <IconeProduto emoji={icone} className={tamanho === 'sm' ? 'h-6 w-6' : tamanho === 'md' ? 'h-14 w-14' : 'h-28 w-28'} />
     </div>
   );
 }

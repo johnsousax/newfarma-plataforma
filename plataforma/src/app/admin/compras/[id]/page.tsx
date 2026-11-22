@@ -9,6 +9,7 @@ import { BotaoAcao, FormAcao } from '@/components/admin/Acoes';
 import { enviarCompraAcao, cancelarCompraAcao, receberCompraAcao } from '@/app/acoes/admin';
 import { brl, dataHora, cep } from '@/lib/formato';
 import { COR_COMPRA } from '@/lib/dominio';
+import { Icone } from '@/components/icones';
 
 async function Conteudo({ params }: { params: PageProps<'/admin/compras/[id]'>['params'] }) {
   await connection();
@@ -27,12 +28,12 @@ async function Conteudo({ params }: { params: PageProps<'/admin/compras/[id]'>['
           <p className="text-sm text-slate-500">Criado {dataHora(c.criadoEm)}{c.enviadoEm ? ` · enviado ${dataHora(c.enviadoEm)}` : ''}{c.recebidoEm ? ` · recebido ${dataHora(c.recebidoEm)} · NF ${c.notaFiscal}` : ''}</p>
         </div>
         <div className="flex gap-2">
-          {c.status === 'RASCUNHO' && <BotaoAcao variante="primario" tamanho="md" acao={enviarCompraAcao.bind(null, c.id)}>📤 Enviar ao fornecedor</BotaoAcao>}
+          {c.status === 'RASCUNHO' && <BotaoAcao variante="primario" tamanho="md" acao={enviarCompraAcao.bind(null, c.id)}><Icone nome="enviar" />Enviar ao fornecedor</BotaoAcao>}
           {['RASCUNHO', 'ENVIADO'].includes(c.status) && <BotaoAcao variante="perigo" tamanho="md" confirmar="Cancelar este pedido?" acao={cancelarCompraAcao.bind(null, c.id)}>Cancelar</BotaoAcao>}
         </div>
       </div>
       {c.status === 'ENVIADO' ? (
-        <FormAcao acao={receberCompraAcao} rotulo="✅ Confirmar recebimento e lançar no estoque" className="cartao space-y-4 p-5">
+        <FormAcao acao={receberCompraAcao} rotulo="Confirmar recebimento e lançar no estoque" className="cartao space-y-4 p-5">
           <input type="hidden" name="id" value={c.id} />
           <h2 className="font-semibold">Recebimento da mercadoria</h2>
           <label className="block max-w-xs"><span className="rotulo">Nº da nota fiscal</span><input name="notaFiscal" required className="campo" /></label>

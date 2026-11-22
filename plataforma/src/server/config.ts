@@ -9,7 +9,7 @@ function chaveMestra(): Buffer {
     return k;
   }
   if (process.env.NODE_ENV === 'production') throw new Error('APP_MASTER_KEY obrigatória em produção');
-  console.warn('⚠️  APP_MASTER_KEY não definida: usando chave de desenvolvimento fixa (NÃO use em produção).');
+  console.warn('[aviso] APP_MASTER_KEY não definida: usando chave de desenvolvimento fixa (NÃO use em produção).');
   return crypto.createHash('sha256').update('chave-dev-farmacia').digest();
 }
 

@@ -9,6 +9,7 @@ import { FormProduto } from '@/components/admin/FormProduto';
 import { BotaoAcao, FormAcao } from '@/components/admin/Acoes';
 import { enviarFotosProduto, removerFotoProduto, tornarFotoPrincipal } from '@/app/acoes/admin';
 import { brl, dataHora } from '@/lib/formato';
+import { Icone } from '@/components/icones';
 
 async function Conteudo({ params, searchParams }: PageProps<'/admin/produtos/[id]'>) {
   await connection();
@@ -40,7 +41,7 @@ async function Conteudo({ params, searchParams }: PageProps<'/admin/produtos/[id
                 <img src={`/imagens/${img.id}`} alt="" className={`aspect-square w-full rounded-lg border object-contain ${i === 0 ? 'border-marca-600' : 'border-slate-200'}`} />
                 <div className="flex flex-wrap gap-1">
                   {i > 0 && <BotaoAcao variante="fantasma" acao={tornarFotoPrincipal.bind(null, img.id)}>Principal</BotaoAcao>}
-                  <BotaoAcao variante="perigo" confirmar="Remover foto?" acao={removerFotoProduto.bind(null, img.id)}>✕</BotaoAcao>
+                  <BotaoAcao variante="perigo" confirmar="Remover foto?" acao={removerFotoProduto.bind(null, img.id)}><Icone nome="excluir" /></BotaoAcao>
                 </div>
               </div>
             ))}

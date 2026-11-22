@@ -8,6 +8,7 @@ import { CarrosselBanners } from '@/components/loja/CarrosselBanners';
 import { Prateleira } from '@/components/loja/CardProduto';
 import { Esqueleto } from '@/components/ui';
 import { FARMACIA, linkWhatsApp } from '@/lib/farmacia';
+import { Icone, IconeProduto, type NomeIcone } from '@/components/icones';
 
 async function Banners() {
   await connection();
@@ -25,7 +26,7 @@ async function Categorias() {
     <section className="mt-8 grid grid-cols-3 gap-3 sm:grid-cols-6">
       {cats.map((c) => (
         <Link key={c.id} href={`/categoria/${c.slug}`} className="cartao flex flex-col items-center gap-2 px-2 py-4 text-center transition hover:-translate-y-0.5 hover:shadow-md">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl text-3xl" style={{ background: `${c.cor}1a` }}>{c.icone}</span>
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: `${c.cor}14`, color: c.cor }}><IconeProduto emoji={c.icone} className="h-7 w-7" /></span>
           <span className="text-xs font-semibold text-slate-800 sm:text-sm">{c.nome}</span>
         </Link>
       ))}
@@ -44,7 +45,7 @@ async function Vitrines() {
   ]);
   return (
     <>
-      <Prateleira titulo="🔥 Ofertas imperdíveis" subtitulo="Descontos por tempo limitado" produtos={ofertas} verMais="/ofertas" />
+      <Prateleira titulo="Ofertas imperdíveis" subtitulo="Descontos por tempo limitado" produtos={ofertas} verMais="/ofertas" />
       <Prateleira titulo="Mais vendidos" subtitulo="Os favoritos dos nossos clientes" produtos={maisVendidos} verMais="/busca?ordem=mais-vendidos" />
       <BeneficiosFaixa />
       <Prateleira titulo="Dermocosméticos" subtitulo="Cuidados para a sua pele" produtos={dermo} verMais="/categoria/dermocosmeticos" />
@@ -56,16 +57,16 @@ async function Vitrines() {
 
 function BeneficiosFaixa() {
   const itens = [
-    ['⚡', 'Entrega expressa', 'Em até 2 horas na sua região'],
-    ['🏬', 'Retire na loja', 'Pronto em 1 hora, sem frete'],
-    ['⭐', 'Programa de pontos', 'Ganhe pontos e troque por descontos'],
-    ['🔁', 'Uso contínuo', '10% OFF assinando seus remédios'],
+    ['raio', 'Entrega rápida', 'No seu bairro, no mesmo dia'],
+    ['loja', 'Retire na loja', 'Pronto em 1 hora, sem frete'],
+    ['estrela', 'Programa de pontos', 'Ganhe pontos e troque por descontos'],
+    ['repetir', 'Uso contínuo', '10% OFF assinando seus remédios'],
   ];
   return (
     <section className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
       {itens.map(([i, t, s]) => (
         <div key={t} className="flex items-center gap-3 rounded-2xl bg-amarelo-50 px-4 py-4 ring-1 ring-amarelo-100">
-          <span className="text-3xl">{i}</span>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-marca-600"><Icone nome={i as NomeIcone} className="h-5 w-5" /></span>
           <div><p className="font-extrabold text-marca-600">{t}</p><p className="text-xs text-marca-600/70">{s}</p></div>
         </div>
       ))}
@@ -95,14 +96,14 @@ function Hero() {
           <p className="mt-5 max-w-xl text-lg text-marca-600/85">Escolha seus produtos e pague pelo Pix ou no cartão em poucos segundos. A gente separa e entrega, ou deixa pronto para você retirar.</p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/ofertas" className="rounded-full bg-oferta-600 px-6 py-3.5 font-extrabold text-white shadow-lg hover:bg-oferta-700">Ver produtos e preços</Link>
-            <Link href="/assistente" className="rounded-full bg-white px-6 py-3.5 font-extrabold text-marca-600 shadow hover:bg-amarelo-50">🤖 Tirar dúvida sobre um remédio</Link>
-            {wa && <a href={wa} target="_blank" rel="noopener noreferrer" className="rounded-full border-2 border-marca-600 px-6 py-3 font-extrabold hover:bg-marca-600 hover:text-white">💬 WhatsApp</a>}
+            <Link href="/assistente" className="rounded-full bg-white px-6 py-3.5 font-extrabold text-marca-600 shadow hover:bg-amarelo-50 inline-flex items-center gap-2"><Icone nome="assistente" className="h-5 w-5" />Tirar dúvida sobre um remédio</Link>
+            {wa && <a href={wa} target="_blank" rel="noopener noreferrer" className="rounded-full border-2 border-marca-600 px-6 py-3 font-extrabold hover:bg-marca-600 hover:text-white inline-flex items-center gap-2"><Icone nome="whatsapp" className="h-5 w-5" />WhatsApp</a>}
           </div>
         </div>
         <ul className="grid grid-cols-2 gap-3 text-sm">
-          {[['⚡', 'Pix na hora', 'QR Code ou copia e cola'], ['🚚', 'Entrega em casa', 'ou retire no balcão'], ['🧑‍⚕️', 'Farmacêutico responsável', 'Orientação de verdade'], ['💳', 'Pix ou cartão', `Crédito em até ${FARMACIA.maxParcelas}x`]].map(([i, t, d]) => (
+          {[['pix', 'Pix na hora', 'QR Code ou copia e cola'], ['entrega', 'Entrega em casa', 'ou retire no balcão'], ['atendimento', 'Farmacêutico responsável', 'Orientação de verdade'], ['cartao', 'Pix ou cartão', `Crédito em até ${FARMACIA.maxParcelas}x`]].map(([i, t, d]) => (
             <li key={t} className="rounded-2xl bg-white/90 p-4 shadow-sm">
-              <span className="text-2xl">{i}</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-marca-50 text-marca-600"><Icone nome={i as NomeIcone} className="h-5 w-5" /></span>
               <p className="mt-1 font-extrabold">{t}</p>
               <p className="text-marca-600/70">{d}</p>
             </li>
@@ -141,7 +142,7 @@ function TemReceita() {
         <p className="mt-2 max-w-2xl text-marca-100">Antibióticos e remédios de pressão, diabetes, tireoide e outros de uso contínuo precisam de receita. Você compra pelo site, envia a foto e o farmacêutico confere antes do pagamento. Controlados (tarja preta), só na loja.</p>
       </div>
       <div className="flex flex-wrap gap-3">
-        <Link href="/assistente" className="rounded-full bg-amarelo-400 px-6 py-3 font-extrabold text-marca-600 hover:bg-amarelo-300">📷 Enviar foto da receita</Link>
+        <Link href="/assistente" className="rounded-full bg-amarelo-400 px-6 py-3 font-extrabold text-marca-600 hover:bg-amarelo-300 inline-flex items-center gap-2"><Icone nome="camera" className="h-5 w-5" />Enviar foto da receita</Link>
         <Link href="/categoria/medicamentos" className="rounded-full border-2 border-white px-6 py-3 font-extrabold hover:bg-white hover:text-marca-600">Ver medicamentos</Link>
       </div>
     </section>

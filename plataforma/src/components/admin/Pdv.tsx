@@ -5,6 +5,7 @@ import { Aviso, Botao, SeloClassificacao, cx } from '@/components/ui';
 import { REGRAS, METODO_PAGAMENTO } from '@/lib/dominio';
 import { brl } from '@/lib/formato';
 import type { Classificacao, MetodoPagamento } from '@/generated/prisma/enums';
+import { Icone, IconeProduto } from '@/components/icones';
 
 type Prod = { id: string; nome: string; preco: number; icone: string; classificacao: Classificacao; ean: string | null; disponivel: number };
 type Item = Prod & { quantidade: number };
@@ -58,7 +59,7 @@ export function Pdv({ farmaceutico }: { farmaceutico: boolean }) {
             <ul className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
               {res.map((p) => (
                 <li key={p.id}><button disabled={p.disponivel <= 0} onClick={() => adicionar(p)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 disabled:opacity-40">
-                  <span className="text-2xl">{p.icone}</span><span className="flex-1 text-sm">{p.nome} <SeloClassificacao c={p.classificacao} /><span className="block text-xs text-slate-500">{p.disponivel} em estoque · {p.ean}</span></span><strong>{brl(p.preco)}</strong>
+                  <IconeProduto emoji={p.icone} className="h-6 w-6 text-marca-600" /><span className="flex-1 text-sm">{p.nome} <SeloClassificacao c={p.classificacao} /><span className="block text-xs text-slate-500">{p.disponivel} em estoque · {p.ean}</span></span><strong>{brl(p.preco)}</strong>
                 </button></li>
               ))}
             </ul>
@@ -70,10 +71,10 @@ export function Pdv({ farmaceutico }: { farmaceutico: boolean }) {
             <tbody>
               {itens.map((i) => (
                 <tr key={i.id}>
-                  <td>{i.icone} {i.nome} <SeloClassificacao c={i.classificacao} /></td>
+                  <td>{i.nome} <SeloClassificacao c={i.classificacao} /></td>
                   <td><input type="number" min={1} max={i.disponivel} value={i.quantidade} onChange={(e) => setItens((xs) => xs.map((x) => (x.id === i.id ? { ...x, quantidade: Math.max(1, Math.min(i.disponivel, Number(e.target.value))) } : x)))} className="campo w-20 py-1.5" /></td>
                   <td className="text-right">{brl(i.preco)}</td><td className="text-right font-semibold">{brl(i.preco * i.quantidade)}</td>
-                  <td><button onClick={() => setItens((xs) => xs.filter((x) => x.id !== i.id))} className="text-rose-600" aria-label="Remover">✕</button></td>
+                  <td><button onClick={() => setItens((xs) => xs.filter((x) => x.id !== i.id))} className="text-rose-600" aria-label="Remover"><Icone nome="excluir" /></button></td>
                 </tr>
               ))}
               {!itens.length && <tr><td colSpan={5} className="py-12 text-center text-slate-400">Nenhum item. Bipe um produto para começar.</td></tr>}

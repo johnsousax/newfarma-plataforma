@@ -29,12 +29,12 @@ export function CalculoFrete({ produtoId, cepInicial = '' }: { produtoId?: strin
         <ul className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
           {r.entregas.map((e) => (
             <li key={e.modalidade} className={`flex items-center justify-between gap-3 px-3 py-2.5 ${e.disponivel ? '' : 'opacity-50'}`}>
-              <span><strong>{e.modalidade === 'ENTREGA_EXPRESSA' ? '⚡ ' : '🚚 '}{e.rotulo}</strong> · {e.disponivel ? e.prazo : e.motivo}</span>
+              <span><strong>{e.rotulo}</strong> · {e.disponivel ? e.prazo : e.motivo}</span>
               {e.disponivel && <span className={e.preco === 0 ? 'font-bold text-emerald-700' : 'font-semibold'}>{e.preco === 0 ? 'Grátis' : brl(e.preco)}</span>}
             </li>
           ))}
           {r.retiradas.map((x) => (
-            <li key={x.loja} className="flex items-center justify-between px-3 py-2.5"><span><strong>🏬 Retirar em {x.loja}</strong> · {x.prazo}</span><span className="font-bold text-emerald-700">Grátis</span></li>
+            <li key={x.loja} className="flex items-center justify-between px-3 py-2.5"><span><strong>Retirar em {x.loja}</strong> · {x.prazo}</span><span className="font-bold text-emerald-700">Grátis</span></li>
           ))}
         </ul>
       )}

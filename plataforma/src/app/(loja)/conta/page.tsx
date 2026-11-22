@@ -25,14 +25,14 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/conta'>['s
   const nivel = nivelFidelidade(gasto._sum.total ?? 0);
   return (
     <div className="space-y-6">
-      {sp.bemvindo && <Aviso tipo="sucesso">🎉 Conta criada! Use o cupom <strong>BEMVINDO10</strong> para ganhar 10% na primeira compra.</Aviso>}
+      {sp.bemvindo && <Aviso tipo="sucesso">Conta criada! Use o cupom <strong>BEMVINDO10</strong> para ganhar 10% na primeira compra.</Aviso>}
       <div>
         <h1 className="text-2xl font-bold">Olá, {u.nome.split(' ')[0]}!</h1>
         <p className="text-sm text-slate-500">Que bom ter você por aqui.</p>
       </div>
       {pendentes > 0 && <Aviso tipo="alerta">Você tem {pendentes} pedido(s) aguardando ação (receita ou pagamento). <Link href="/conta/pedidos" className="font-semibold underline">Ver pedidos</Link></Aviso>}
       {lembretes.map((l) => (
-        <Aviso key={l.id} tipo="alerta">⏰ Seu <strong>{l.nomeMedicamento}</strong> está acabando ({l.dosesRestantes} doses). {l.produto && <Link href={`/produto/${l.produto.slug}`} className="font-semibold underline">Comprar agora</Link>}</Aviso>
+        <Aviso key={l.id} tipo="alerta">Seu <strong>{l.nomeMedicamento}</strong> está acabando ({l.dosesRestantes} doses). {l.produto && <Link href={`/produto/${l.produto.slug}`} className="font-semibold underline">Comprar agora</Link>}</Aviso>
       ))}
       <div className="grid gap-4 sm:grid-cols-3">
         <Link href="/conta/fidelidade" className="cartao p-5 hover:shadow-md">

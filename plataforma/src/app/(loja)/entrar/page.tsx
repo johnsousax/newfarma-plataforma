@@ -19,12 +19,12 @@ export default function Entrar(props: PageProps<'/entrar'>) {
       </div>
       <div className="flex flex-col justify-center rounded-3xl bg-marca-600 p-8 text-white">
         <h2 className="text-2xl font-bold">Vantagens de ter conta</h2>
-        <ul className="mt-4 space-y-3 text-white/90">
-          <li>⭐ 1 ponto por real gasto — troque por desconto</li>
-          <li>🔁 Assinatura de uso contínuo com 10% OFF</li>
-          <li>⏰ Lembretes para tomar e recomprar seus remédios</li>
-          <li>📦 Recompra em um clique</li>
-          <li>🎁 10% OFF na primeira compra com BEMVINDO10</li>
+        <ul className="mt-4 list-disc space-y-3 pl-5 text-white/90 marker:text-amarelo-400">
+          <li>1 ponto por real gasto — troque por desconto</li>
+          <li>Assinatura de uso contínuo com 10% OFF</li>
+          <li>Lembretes para tomar e recomprar seus remédios</li>
+          <li>Recompra em um clique</li>
+          <li>10% OFF na primeira compra com BEMVINDO10</li>
         </ul>
         <p className="mt-6 rounded-xl bg-white/10 p-3 text-xs">Demonstração: cliente@farmacia.local · admin@farmacia.local · farmaceutico@farmacia.local · gerente@farmacia.local · atendente@farmacia.local (senha definida no .env).</p>
       </div>

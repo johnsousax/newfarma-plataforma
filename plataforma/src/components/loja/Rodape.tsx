@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { FARMACIA, linkWhatsApp, telefoneFormatado } from '@/lib/farmacia';
 import { LogoCompleto } from '@/components/Logo';
+import { Icone } from '@/components/icones';
 
 export function Rodape() {
   const wa = linkWhatsApp('Olá! Vim pelo site.');
@@ -24,15 +25,15 @@ export function Rodape() {
           <div>
             <h3 className="mb-3 font-bold text-white">Atendimento</h3>
             <ul className="space-y-2 text-marca-100">
-              {wa && <li><a href={wa} target="_blank" rel="noopener noreferrer" className="hover:text-white">💬 WhatsApp {telefoneFormatado(FARMACIA.whatsapp)}</a></li>}
-              {FARMACIA.sac && <li>📞 {FARMACIA.sac}</li>}
-              {FARMACIA.email && <li>✉️ {FARMACIA.email}</li>}
+              {wa && <li><a href={wa} target="_blank" rel="noopener noreferrer" className="hover:text-white inline-flex items-center gap-2"><Icone nome="whatsapp" />WhatsApp {telefoneFormatado(FARMACIA.whatsapp)}</a></li>}
+              {FARMACIA.sac && <li className="flex items-center gap-2"><Icone nome="telefone" />{FARMACIA.sac}</li>}
+              {FARMACIA.email && <li className="flex items-center gap-2"><Icone nome="email" />{FARMACIA.email}</li>}
               <li>Farmacêutico responsável para orientar você</li>
             </ul>
           </div>
           <div>
             <h3 className="mb-3 font-bold text-white">Pagamento seguro</h3>
-            <p className="text-marca-100">⚡ Pix com confirmação automática · 💳 Cartão em até {FARMACIA.maxParcelas}x sem juros · 🔒 Dados do cartão não ficam na farmácia</p>
+            <p className="text-marca-100">Pix com confirmação automática · Cartão em até {FARMACIA.maxParcelas}x sem juros · Dados do cartão não ficam na farmácia</p>
             <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-marca-100">
               <li><Link href="/privacidade" className="hover:text-white">Privacidade</Link></li>
               <li><Link href="/termos" className="hover:text-white">Termos</Link></li>

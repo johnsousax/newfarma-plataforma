@@ -5,6 +5,7 @@ import { db } from '@/server/db';
 import { exigirLogin } from '@/server/auth';
 import { Esqueleto, TituloPagina, Badge } from '@/components/ui';
 import { FormLembrete, BotaoRemoverLembrete } from '@/components/conta/FormsConta';
+import { Icone } from '@/components/icones';
 
 export const metadata = { title: 'Lembretes de remédio' };
 
@@ -20,7 +21,7 @@ async function Conteudo() {
       {lista.map((l) => (
         <div key={l.id} className="cartao flex flex-wrap items-center justify-between gap-3 p-5">
           <div>
-            <p className="font-semibold">⏰ {l.nomeMedicamento} {l.dosagem && <span className="font-normal text-slate-500">· {l.dosagem}</span>}</p>
+            <p className="flex items-center gap-2 font-semibold"><Icone nome="lembrete" className="text-marca-600" />{l.nomeMedicamento} {l.dosagem && <span className="font-normal text-slate-500">· {l.dosagem}</span>}</p>
             <div className="mt-1 flex flex-wrap gap-1">{l.horarios.map((h) => <Badge key={h} cor="marca">{h}</Badge>)}</div>
             {l.dosesRestantes != null && <p className={`mt-1 text-sm ${l.dosesRestantes <= 7 ? 'font-semibold text-amber-700' : 'text-slate-500'}`}>{l.dosesRestantes} doses restantes{l.dosesRestantes <= 7 && l.produto ? <> · <Link href={`/produto/${l.produto.slug}`} className="underline">comprar</Link></> : ''}</p>}
           </div>

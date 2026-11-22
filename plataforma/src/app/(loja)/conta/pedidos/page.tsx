@@ -14,7 +14,7 @@ async function Conteudo() {
   await connection();
   const u = await exigirLogin('/conta/pedidos');
   const pedidos = await db.pedido.findMany({ where: { usuarioId: u.id }, orderBy: { criadoEm: 'desc' }, take: 50, include: { itens: { select: { nome: true, quantidade: true } } } });
-  if (!pedidos.length) return <Vazio icone="📦" titulo="Nenhum pedido ainda" acao={<BotaoLink href="/">Começar a comprar</BotaoLink>} />;
+  if (!pedidos.length) return <Vazio icone="pedidos" titulo="Nenhum pedido ainda" acao={<BotaoLink href="/">Começar a comprar</BotaoLink>} />;
   return (
     <ul className="space-y-3">
       {pedidos.map((p) => (

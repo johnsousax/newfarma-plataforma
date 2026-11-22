@@ -36,7 +36,7 @@ async function Conteudo({ params }: { params: PageProps<'/admin/pedidos/[id]'>['
         <div className="flex flex-wrap items-start gap-2">
           {prox.map((s) => (
             <BotaoAcao key={s} variante="primario" tamanho="md" acao={avancarPedido.bind(null, p.id, s)} confirmar={s === 'EM_SEPARACAO' ? 'Confirma a separação? O estoque será baixado (FEFO).' : undefined}>
-              {s === 'EM_SEPARACAO' ? '📦 Iniciar separação' : s === 'SAIU_PARA_ENTREGA' ? '🛵 Despachar' : s === 'PRONTO_PARA_RETIRADA' ? '🏬 Pronto p/ retirada' : '✅ Marcar entregue'}
+              {s === 'EM_SEPARACAO' ? 'Iniciar separação' : s === 'SAIU_PARA_ENTREGA' ? 'Despachar' : s === 'PRONTO_PARA_RETIRADA' ? 'Pronto p/ retirada' : 'Marcar entregue'}
             </BotaoAcao>
           ))}
           {['AGUARDANDO_RECEITA', 'AGUARDANDO_PAGAMENTO', 'PAGO'].includes(p.status) && (

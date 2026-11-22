@@ -9,7 +9,7 @@ export async function enviarEmail(para: string, assunto: string, texto: string) 
   const chave = process.env.RESEND_API_KEY;
   const de = process.env.EMAIL_REMETENTE || `${FARMACIA.nome} <nao-responda@newpopularfarma.com.br>`;
   if (!chave) {
-    console.info(`\n📧 [e-mail não enviado — configure RESEND_API_KEY]\nPara: ${para}\nAssunto: ${assunto}\n${texto}\n`);
+    console.info(`\n[e-mail não enviado — configure RESEND_API_KEY]\nPara: ${para}\nAssunto: ${assunto}\n${texto}\n`);
     return { enviado: false };
   }
   const r = await fetch('https://api.resend.com/emails', {

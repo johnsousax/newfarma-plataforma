@@ -7,6 +7,7 @@ import { Aviso, Botao, cx } from '@/components/ui';
 import { brl, cep as fmtCep } from '@/lib/formato';
 import { FARMACIA } from '@/lib/farmacia';
 import { tokenizar, type CartaoDigitado } from '@/lib/tokenizacao';
+import { Icone } from '@/components/icones';
 
 type Endereco = { id: string; apelido: string; logradouro: string; numero: string; complemento: string | null; bairro: string; cidade: string; uf: string; cep: string; principal: boolean };
 type Sim = Extract<Awaited<ReturnType<typeof simularCheckout>>, { ok: true }>['dados'];
@@ -71,7 +72,7 @@ export function FluxoCheckout({ enderecos, nome, exigeReceita }: { enderecos: En
           <div className="grid grid-cols-2 gap-2">
             {(['entrega', 'retirada'] as const).map((m) => (
               <button key={m} type="button" onClick={() => setModo(m)} className={cx('rounded-xl border-2 px-4 py-3 text-left text-sm font-semibold', modo === m ? 'border-marca-600 bg-marca-50 text-marca-900' : 'border-slate-200 hover:border-slate-300')}>
-                {m === 'entrega' ? '🚚 Receber em casa' : '🏬 Retirar na loja'}<span className="block text-xs font-normal text-slate-500">{m === 'entrega' ? 'Expressa em até 2h ou padrão' : 'Grátis · pronto em 1 hora'}</span>
+                {m === 'entrega' ? 'Receber em casa' : 'Retirar na loja'}<span className="block text-xs font-normal text-slate-500">{m === 'entrega' ? 'Expressa em até 2h ou padrão' : 'Grátis · pronto em 1 hora'}</span>
               </button>
             ))}
           </div>
@@ -93,7 +94,7 @@ export function FluxoCheckout({ enderecos, nome, exigeReceita }: { enderecos: En
                   {sim.entregas.map((e) => (
                     <label key={e.modalidade} className={cx('flex items-center gap-3 rounded-xl border p-3 text-sm', !e.disponivel && 'opacity-50', modalidade === e.modalidade && e.disponivel ? 'border-marca-500 bg-marca-50/50' : 'border-slate-200')}>
                       <input type="radio" disabled={!e.disponivel} checked={modalidade === e.modalidade && e.disponivel} onChange={() => setModalidade(e.modalidade as Modalidade)} className="accent-marca-600" />
-                      <span className="flex-1"><strong>{e.modalidade === 'ENTREGA_EXPRESSA' ? '⚡' : '🚚'} {e.rotulo}</strong> · {e.disponivel ? `${e.prazo} · sai da ${e.lojaNome}` : e.motivo}</span>
+                      <span className="flex-1"><strong>{e.rotulo}</strong> · {e.disponivel ? `${e.prazo} · sai da ${e.lojaNome}` : e.motivo}</span>
                       {e.disponivel && <strong className={e.preco ? '' : 'text-emerald-700'}>{e.preco ? brl(e.preco) : 'Grátis'}</strong>}
                     </label>
                   ))}
@@ -131,11 +132,11 @@ export function FluxoCheckout({ enderecos, nome, exigeReceita }: { enderecos: En
         <section className={passo}>
           <h2 className="flex items-center gap-2 text-lg font-bold"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-marca-600 text-sm text-white">3</span> Pagamento</h2>
           {exigeReceita ? (
-            <Aviso tipo="info">📋 Seu pedido tem medicamento com receita. Primeiro você envia a receita e nosso farmacêutico valida; <strong>só depois</strong> você paga (PIX ou cartão). Nada é cobrado agora.</Aviso>
+            <Aviso tipo="info">Seu pedido tem medicamento com receita. Primeiro você envia a receita e nosso farmacêutico valida; <strong>só depois</strong> você paga (PIX ou cartão). Nada é cobrado agora.</Aviso>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-2">
-                {([['PIX', '⚡ PIX', 'Aprovação na hora'], ['CARTAO_CREDITO', '💳 Cartão de crédito', `Até ${FARMACIA.maxParcelas}x sem juros`]] as const).map(([v, r, s]) => (
+                {([['PIX', 'PIX', 'Aprovação na hora'], ['CARTAO_CREDITO', 'Cartão de crédito', `Até ${FARMACIA.maxParcelas}x sem juros`]] as const).map(([v, r, s]) => (
                   <button key={v} type="button" onClick={() => setMetodo(v)} className={cx('rounded-xl border-2 px-4 py-3 text-left text-sm font-semibold', metodo === v ? 'border-marca-600 bg-marca-50 text-marca-900' : 'border-slate-200')}>{r}<span className="block text-xs font-normal text-slate-500">{s}</span></button>
                 ))}
               </div>
@@ -156,7 +157,7 @@ export function FluxoCheckout({ enderecos, nome, exigeReceita }: { enderecos: En
               {t.descontoPontos > 0 && <div className="flex justify-between text-emerald-700"><dt>Pontos ({t.pontosUsados})</dt><dd>−{brl(t.descontoPontos)}</dd></div>}
               <div className="flex justify-between"><dt>Frete</dt><dd>{t.frete ? brl(t.frete) : <span className="font-semibold text-emerald-700">Grátis</span>}</dd></div>
               <div className="flex justify-between border-t pt-3 text-lg font-extrabold"><dt>Total</dt><dd>{brl(t.total)}</dd></div>
-              <p className="text-xs text-slate-500">⭐ Você vai ganhar {t.pontosAGanhar} pontos quando o pedido for entregue.</p>
+              <p className="text-xs text-slate-500">Você vai ganhar {t.pontosAGanhar} pontos quando o pedido for entregue.</p>
             </dl>
           ) : <div className="h-40 animate-pulse rounded-xl bg-slate-100" />}
           {erro && <Aviso tipo="erro">{erro}</Aviso>}
@@ -164,7 +165,7 @@ export function FluxoCheckout({ enderecos, nome, exigeReceita }: { enderecos: En
             {enviando ? 'Processando…' : exigeReceita ? 'Confirmar e enviar receita' : metodo === 'PIX' ? 'Gerar PIX e finalizar' : `Pagar ${t ? brl(t.total) : ''}`}
           </Botao>
           {!sim?.opcaoValida && sim && <p className="text-xs text-slate-500">Escolha uma forma de entrega disponível.</p>}
-          <p className="text-center text-xs text-slate-500">🔒 Compra segura · Seus dados protegidos pela LGPD</p>
+          <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-500"><Icone nome="cadeado" className="h-3.5 w-3.5" />Compra segura · Seus dados protegidos pela LGPD</p>
         </div>
       </aside>
     </div>

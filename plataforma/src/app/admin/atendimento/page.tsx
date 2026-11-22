@@ -8,6 +8,8 @@ import { Badge, Esqueleto, TituloPagina, Vazio, Aviso } from '@/components/ui';
 import { AtualizarSozinho } from '@/components/assistente/Controles';
 import { dataHora, telefone } from '@/lib/formato';
 import { minutosDesde, diasAtras } from '@/lib/tempo';
+import { linkWhatsPara } from '@/server/configuracoes';
+import { Icone } from '@/components/icones';
 
 export const metadata = { title: 'Atendimento farmacêutico' };
 
@@ -22,18 +24,18 @@ async function Conteudo() {
     <div className="space-y-5">
       <AtualizarSozinho ativo />
       {u.papel !== 'FARMACEUTICO' && <Aviso tipo="info">Somente farmacêuticos respondem. Você pode acompanhar a fila.</Aviso>}
-      {fila.length === 0 ? <Vazio icone="✅" titulo="Ninguém aguardando" texto="Quando o assistente encaminhar uma dúvida ou o cliente pedir um farmacêutico, a conversa aparece aqui (atualiza sozinha)." /> : (
+      {fila.length === 0 ? <Vazio icone="sucesso" titulo="Ninguém aguardando" texto="Quando o assistente encaminhar uma dúvida ou o cliente pedir um farmacêutico, a conversa aparece aqui (atualiza sozinha)." /> : (
         <div className="cartao overflow-x-auto">
           <table className="tabela">
             <thead><tr><th>Cliente</th><th>Motivo</th><th>Status</th><th>Esperando</th><th>Mensagens</th><th /></tr></thead>
             <tbody>{fila.map((c) => (
               <tr key={c.id} className={c.emergencia ? 'bg-oferta-50' : ''}>
                 <td className="font-medium">{c.usuario.nome}<span className="block text-xs text-slate-500">{telefone(c.usuario.telefone)}</span></td>
-                <td className="text-sm">{c.emergencia && <Badge cor="rose">🚨 Emergência</Badge>} {c.motivoEncaminhamento}</td>
+                <td className="text-sm">{c.emergencia && <Badge cor="rose"><Icone nome="emergencia" className="h-3 w-3" />Emergência</Badge>} {c.motivoEncaminhamento}</td>
                 <td><Badge cor={c.status === 'EM_ATENDIMENTO' ? 'emerald' : 'amber'}>{c.status === 'EM_ATENDIMENTO' ? `Com ${c.farmaceutico?.nome ?? 'farmacêutico'}` : 'Aguardando'}</Badge></td>
                 <td className="whitespace-nowrap">{minutosDesde(c.atualizadoEm)} min<span className="block text-xs text-slate-500">{dataHora(c.atualizadoEm)}</span></td>
                 <td>{c._count.mensagens}</td>
-                <td className="text-right"><Link href={`/admin/atendimento/${c.id}`} className="link">Abrir →</Link></td>
+                <td className="whitespace-nowrap text-right">{linkWhatsPara(c.usuario.telefone, `Olá, ${c.usuario.nome.split(' ')[0]}! Aqui é o farmacêutico da New Farma Popular sobre a sua dúvida no site.`) && <a href={linkWhatsPara(c.usuario.telefone, `Olá, ${c.usuario.nome.split(' ')[0]}! Aqui é o farmacêutico da New Farma Popular sobre a sua dúvida no site.`)!} target="_blank" rel="noopener noreferrer" className="mr-3 inline-flex items-center gap-1 font-semibold text-emerald-700"><Icone nome="whatsapp" />WhatsApp</a>}<Link href={`/admin/atendimento/${c.id}`} className="link">Abrir</Link></td>
               </tr>
             ))}</tbody>
           </table>

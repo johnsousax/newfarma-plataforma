@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { sugerir } from '@/app/acoes/busca';
 import { brl } from '@/lib/formato';
+import { Icone, IconeProduto } from '@/components/icones';
 
 type Sugestao = Awaited<ReturnType<typeof sugerir>>[number];
 
@@ -35,7 +36,7 @@ export function CaixaBusca() {
         onSubmit={(e) => { e.preventDefault(); setAberto(false); router.push(`/busca?q=${encodeURIComponent(q.trim())}`); }}
         className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 pl-4 transition focus-within:border-marca-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-marca-100"
       >
-        <span aria-hidden className="text-slate-400">🔎</span>
+        <Icone nome="busca" className="h-5 w-5 text-slate-400" />
         <input
           value={q}
           onChange={(e) => { setQ(e.target.value); setAberto(true); }}
@@ -52,7 +53,7 @@ export function CaixaBusca() {
         <div className="absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
           {lista.map((s) => (
             <Link key={s.slug} href={`/produto/${s.slug}`} onClick={() => setAberto(false)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50">
-              <span className="text-2xl">{s.icone}</span>
+              <IconeProduto emoji={s.icone} className="h-6 w-6 shrink-0 text-marca-600" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-slate-900">{s.nome}</span>
                 <span className="block text-xs text-slate-500">{s.marca}</span>

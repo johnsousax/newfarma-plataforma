@@ -41,7 +41,7 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/admin/prod
               const d = disp.get(p.id) ?? 0;
               return (
                 <tr key={p.id} className={p.ativo ? '' : 'opacity-50'}>
-                  <td><Link href={`/admin/produtos/${p.id}`} className="font-medium hover:text-marca-700">{p.icone} {p.nome}</Link><span className="block text-xs text-slate-500">{p.sku} · {p.marca.nome}</span></td>
+                  <td><Link href={`/admin/produtos/${p.id}`} className="font-medium hover:text-marca-700">{p.nome}</Link><span className="block text-xs text-slate-500">{p.sku} · {p.marca.nome}</span></td>
                   <td><SeloClassificacao c={p.classificacao} />{p.classificacao === 'NAO_MEDICAMENTO' && <Badge>Livre</Badge>}</td>
                   <td>{p.categoria.nome}</td>
                   <td className="text-right font-semibold">{brl(p.preco)}{p.pmc && <span className="block text-xs font-normal text-slate-500">PMC {brl(p.pmc)}</span>}</td>

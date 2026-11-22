@@ -4,6 +4,7 @@ import { pagarAcao, enviarReceitaAcao, cancelarPedidoAcao, simularPixAcao, compr
 import { FormCartao } from './FormCartao';
 import { Aviso, Botao, Campo, cx } from '@/components/ui';
 import { tokenizar, type CartaoDigitado } from '@/lib/tokenizacao';
+import { Icone } from '@/components/icones';
 
 export function PagarPedido({ pedidoId, total }: { pedidoId: string; total: number }) {
   const [metodo, setMetodo] = useState<'PIX' | 'CARTAO_CREDITO'>('PIX');
@@ -19,7 +20,7 @@ export function PagarPedido({ pedidoId, total }: { pedidoId: string; total: numb
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
         {(['PIX', 'CARTAO_CREDITO'] as const).map((m) => (
-          <button key={m} type="button" onClick={() => setMetodo(m)} className={cx('rounded-xl border-2 px-3 py-2.5 text-sm font-semibold', metodo === m ? 'border-marca-600 bg-marca-50' : 'border-slate-200')}>{m === 'PIX' ? '⚡ PIX' : '💳 Cartão'}</button>
+          <button key={m} type="button" onClick={() => setMetodo(m)} className={cx('rounded-xl border-2 px-3 py-2.5 text-sm font-semibold', metodo === m ? 'border-marca-600 bg-marca-50' : 'border-slate-200')}>{m === 'PIX' ? 'PIX' : 'Cartão'}</button>
         ))}
       </div>
       {metodo === 'CARTAO_CREDITO' && <FormCartao total={total} valor={cartao} onChange={setCartao} />}
@@ -93,5 +94,5 @@ export function CancelarPedido({ pedidoId }: { pedidoId: string }) {
 
 export function ComprarNovamente({ pedidoId }: { pedidoId: string }) {
   const [pendente, iniciar] = useTransition();
-  return <Botao variante="secundario" tamanho="sm" disabled={pendente} onClick={() => iniciar(async () => { await comprarNovamente(pedidoId); })}>{pendente ? '…' : '🔁 Comprar novamente'}</Botao>;
+  return <Botao variante="secundario" tamanho="sm" disabled={pendente} onClick={() => iniciar(async () => { await comprarNovamente(pedidoId); })}>{pendente ? '…' : <><Icone nome="repetir" />Comprar novamente</>}</Botao>;
 }

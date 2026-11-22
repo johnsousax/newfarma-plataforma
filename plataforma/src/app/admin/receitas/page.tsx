@@ -9,6 +9,7 @@ import { BotaoAcao } from '@/components/admin/Acoes';
 import { avaliarReceitaAcao } from '@/app/acoes/admin';
 import { data, dataHora } from '@/lib/formato';
 import { minutosDesde } from '@/lib/tempo';
+import { Icone } from '@/components/icones';
 
 export const metadata = { title: 'Receitas' };
 
@@ -23,11 +24,11 @@ async function Conteudo() {
   return (
     <div className="space-y-6">
       {!podeAvaliar && <Aviso tipo="info">Somente farmacêuticos com CRF podem aprovar ou recusar receitas. Você pode visualizar a fila.</Aviso>}
-      {fila.length === 0 ? <Vazio icone="✅" titulo="Nenhuma receita pendente" texto="Quando um cliente enviar uma receita, ela aparece aqui." /> : fila.map((r) => (
+      {fila.length === 0 ? <Vazio icone="sucesso" titulo="Nenhuma receita pendente" texto="Quando um cliente enviar uma receita, ela aparece aqui." /> : fila.map((r) => (
         <article key={r.id} className="cartao grid gap-5 p-5 lg:grid-cols-[360px_1fr]">
           <a href={`/api/admin/receitas/${r.id}`} target="_blank" rel="noopener" className="block overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
             {r.mime === 'application/pdf'
-              ? <div className="flex h-64 items-center justify-center text-sm font-semibold text-marca-700">📄 Abrir PDF da receita</div>
+              ? <div className="flex h-64 items-center justify-center text-sm font-semibold text-marca-700 gap-2"><Icone nome="arquivo" className="h-5 w-5" />Abrir PDF da receita</div>
               // eslint-disable-next-line @next/next/no-img-element
               : <img src={`/api/admin/receitas/${r.id}`} alt="Receita enviada pelo cliente" className="h-64 w-full object-contain" />}
           </a>
@@ -50,7 +51,7 @@ async function Conteudo() {
             <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">Confira: nome do paciente, medicamento, dose e posologia, data, assinatura e carimbo do prescritor. Antimicrobianos: receita em 2 vias, validade de 10 dias, retenção da 2ª via na entrega.</p>
             {podeAvaliar && (
               <div className="flex flex-wrap gap-2">
-                <BotaoAcao variante="primario" tamanho="md" confirmar="Aprovar e liberar para pagamento?" acao={async () => { 'use server'; return avaliarReceitaAcao(r.id, true, ''); }}>✅ Aprovar</BotaoAcao>
+                <BotaoAcao variante="primario" tamanho="md" confirmar="Aprovar e liberar para pagamento?" acao={async () => { 'use server'; return avaliarReceitaAcao(r.id, true, ''); }}>Aprovar</BotaoAcao>
                 <BotaoAcao variante="perigo" tamanho="md" pedirTexto="Motivo (será enviado ao cliente)" acao={async (m) => { 'use server'; return avaliarReceitaAcao(r.id, false, m ?? ''); }}>Recusar</BotaoAcao>
               </div>
             )}

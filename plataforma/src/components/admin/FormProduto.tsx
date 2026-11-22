@@ -3,6 +3,7 @@ import { useActionState, useState } from 'react';
 import { salvarProduto } from '@/app/acoes/admin';
 import { Aviso, Botao, Campo } from '@/components/ui';
 import { REGRAS, TIPO_MEDICAMENTO } from '@/lib/dominio';
+import { OPCOES_ICONE_PRODUTO } from '@/components/icones';
 
 type Opc = { id: string; nome: string };
 type P = Record<string, unknown> & { id?: string };
@@ -24,7 +25,7 @@ export function FormProduto({ produto, marcas, categorias }: { produto?: P; marc
         <Campo rotulo="EAN (código de barras)" erro={c.ean}><input name="ean" defaultValue={v('ean')} inputMode="numeric" className="campo" /></Campo>
         <Campo rotulo="Marca"><select name="marcaId" defaultValue={v('marcaId')} className="campo">{marcas.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></Campo>
         <Campo rotulo="Categoria"><select name="categoriaId" defaultValue={v('categoriaId')} className="campo">{categorias.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></Campo>
-        <Campo rotulo="Ícone (emoji)"><input name="icone" defaultValue={v('icone') || '💊'} maxLength={8} className="campo" /></Campo>
+        <Campo rotulo="Ícone (quando não há foto)"><select name="icone" defaultValue={v('icone') || '💊'} className="campo">{OPCOES_ICONE_PRODUTO.map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></Campo>
         <Campo rotulo="Tags (separadas por vírgula)" ajuda="Ajudam na busca. Use “uso continuo” para permitir assinatura."><input name="tags" defaultValue={(produto?.tags as string[] | undefined)?.join(', ') ?? ''} className="campo" /></Campo>
         <Campo rotulo="Descrição curta" erro={c.descricaoCurta} className="md:col-span-2"><input name="descricaoCurta" defaultValue={v('descricaoCurta')} required className="campo" /></Campo>
         <Campo rotulo="Descrição completa" erro={c.descricao} className="md:col-span-2"><textarea name="descricao" defaultValue={v('descricao')} required rows={4} className="campo" /></Campo>

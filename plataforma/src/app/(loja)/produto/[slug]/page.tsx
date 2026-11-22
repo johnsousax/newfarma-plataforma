@@ -16,6 +16,7 @@ import { Prateleira } from '@/components/loja/CardProduto';
 import { REGRAS, TIPO_MEDICAMENTO } from '@/lib/dominio';
 import { brl, data, percentual } from '@/lib/formato';
 import { FARMACIA, linkWhatsApp, parcelasPara } from '@/lib/farmacia';
+import { Icone } from '@/components/icones';
 
 export async function generateMetadata({ params }: PageProps<'/produto/[slug]'>) {
   const { slug } = await params;
@@ -80,7 +81,7 @@ async function Conteudo({ params }: { params: PageProps<'/produto/[slug]'>['para
                 <Aviso tipo="alerta"><strong>Venda somente na loja.</strong> Medicamento de controle especial (Portaria 344/98): a RDC 44/2009 proíbe a venda pela internet. Leve a receita original (notificação) a uma de nossas lojas.</Aviso>
               ) : regra.exigeReceita ? (
                 <Aviso tipo="info">
-                  <strong>📋 Exige receita médica{regra.retencao ? ' (retida)' : ''}.</strong> Depois de finalizar o pedido, envie a foto da receita: nosso farmacêutico valida antes do pagamento.
+                  <strong>Exige receita médica{regra.retencao ? ' (retida)' : ''}.</strong> Depois de finalizar o pedido, envie a foto da receita: nosso farmacêutico valida antes do pagamento.
                   {p.classificacao === 'ANTIMICROBIANO' && ' Antimicrobianos: receita válida por 10 dias a partir da emissão (RDC 471/2021).'}
                 </Aviso>
               ) : null}
@@ -90,7 +91,7 @@ async function Conteudo({ params }: { params: PageProps<'/produto/[slug]'>['para
 
           {maisBarato && maisBarato.oferta.preco < p.oferta.preco && (
             <Link href={`/produto/${maisBarato.slug}`} className="mt-5 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 hover:bg-amber-100">
-              <span className="text-2xl">💡</span>
+              <Icone nome="ideia" className="h-6 w-6 shrink-0 text-amber-700" />
               <span className="text-sm text-amber-950"><strong>Economize {percentual(p.oferta.preco, maisBarato.oferta.preco)}%</strong> com {TIPO_MEDICAMENTO[maisBarato.tipo].toLowerCase() || 'a opção'} {maisBarato.marca.nome}: mesmo princípio ativo por {brl(maisBarato.oferta.preco)} →</span>
             </Link>
           )}
@@ -129,13 +130,13 @@ async function Conteudo({ params }: { params: PageProps<'/produto/[slug]'>['para
           <div className="cartao space-y-4 p-5">
             <Preco preco={p.oferta.preco} precoDe={p.oferta.precoDe} tamanho="lg" />
             {parcelas > 1 && <p className="text-sm text-slate-600">ou {parcelas}x de {brl(Math.ceil(p.oferta.preco / parcelas))} sem juros</p>}
-            <p className="text-sm text-slate-600">⭐ Ganhe <strong>{Math.floor(p.oferta.preco / 100)} pontos</strong> nesta compra</p>
-            {p.oferta.leve && <p className="rounded-xl bg-oferta-50 px-3 py-2 text-sm font-semibold text-oferta-700">🎁 Leve {p.oferta.leve}, pague {p.oferta.pague}: desconto aplicado no carrinho</p>}
+            <p className="text-sm text-slate-600">Ganhe <strong>{Math.floor(p.oferta.preco / 100)} pontos</strong> nesta compra</p>
+            {p.oferta.leve && <p className="rounded-xl bg-oferta-50 px-3 py-2 text-sm font-semibold text-oferta-700">Leve {p.oferta.leve}, pague {p.oferta.pague}: desconto aplicado no carrinho</p>}
             {p.disponivel > 0 && p.disponivel <= 5 && <p className="text-sm font-semibold text-amber-700">Restam só {p.disponivel} unidades!</p>}
             <BotaoComprar produtoId={p.id} disponivel={p.disponivel} controlado={p.classificacao === 'CONTROLADO'} comSeletor />
             <div className="flex gap-2">
               <BotaoFavorito produtoId={p.id} favorito={!!fav} logado={!!u} />
-              {usoContinuo && p.classificacao !== 'CONTROLADO' && <Link href={`/conta/assinaturas?produto=${p.id}`} className="flex flex-1 items-center justify-center rounded-xl border border-marca-300 px-3 text-sm font-semibold text-marca-800 hover:bg-marca-50">🔁 Assinar −10%</Link>}
+              {usoContinuo && p.classificacao !== 'CONTROLADO' && <Link href={`/conta/assinaturas?produto=${p.id}`} className="flex flex-1 items-center justify-center rounded-xl border border-marca-300 px-3 text-sm font-semibold text-marca-800 hover:bg-marca-50"><Icone nome="repetir" className="mr-1.5" />Assinar −10%</Link>}
             </div>
           </div>
           {p.classificacao !== 'CONTROLADO' && (
@@ -162,8 +163,8 @@ async function Conteudo({ params }: { params: PageProps<'/produto/[slug]'>['para
             <p className="font-semibold">Dúvidas sobre este produto?</p>
             <p className="text-slate-600">Fale com nosso farmacêutico{FARMACIA.rtNome ? ` (${FARMACIA.rtNome}${FARMACIA.rtCrf ? `, ${FARMACIA.rtCrf}` : ''})` : ''}. O assistente virtual explica para que o medicamento serve conforme a bula, mas não indica tratamento.</p>
             <div className="flex flex-wrap gap-2">
-              <Link href="/assistente" className="rounded-xl bg-marca-600 px-3 py-2 font-semibold text-white">🤖 Assistente</Link>
-              {linkWhatsApp(`Olá! Tenho uma dúvida sobre ${p.nome}.`) && <a href={linkWhatsApp(`Olá! Tenho uma dúvida sobre ${p.nome}.`)!} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-slate-300 px-3 py-2 font-semibold">💬 WhatsApp</a>}
+              <Link href="/assistente" className="rounded-xl bg-marca-600 px-3 py-2 font-semibold text-white inline-flex items-center gap-1.5"><Icone nome="assistente" />Assistente</Link>
+              {linkWhatsApp(`Olá! Tenho uma dúvida sobre ${p.nome}.`) && <a href={linkWhatsApp(`Olá! Tenho uma dúvida sobre ${p.nome}.`)!} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-slate-300 px-3 py-2 font-semibold inline-flex items-center gap-1.5"><Icone nome="whatsapp" />WhatsApp</a>}
             </div>
           </div>
         </aside>

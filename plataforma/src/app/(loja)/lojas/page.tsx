@@ -3,6 +3,7 @@ import { cacheLife, cacheTag } from 'next/cache';
 import { db } from '@/server/db';
 import { Badge, Esqueleto, TituloPagina } from '@/components/ui';
 import { telefone, cep } from '@/lib/formato';
+import { Icone } from '@/components/icones';
 
 export const metadata = { title: 'Nossas lojas' };
 
@@ -21,11 +22,11 @@ async function Lista() {
         <article key={l.id} className="cartao p-6">
           <div className="flex items-start justify-between gap-3">
             <h2 className="text-lg font-bold">{l.nome}</h2>
-            {l.aceitaExpressa && <Badge cor="marca">⚡ Expressa 2h</Badge>}
+            {l.aceitaExpressa && <Badge cor="marca"><Icone nome="raio" className="h-3 w-3" />Entrega rápida</Badge>}
           </div>
           <p className="mt-2 text-sm text-slate-600">{l.logradouro}, {l.numero} · {l.bairro}<br />{l.cidade}/{l.uf} · CEP {cep(l.cep)}</p>
-          <p className="mt-2 text-sm">🕒 {l.horario}</p>
-          <p className="text-sm">📞 {telefone(l.telefone)}</p>
+          <p className="mt-2 flex items-center gap-2 text-sm"><Icone nome="relogio" className="text-slate-400" />{l.horario}</p>
+          <p className="flex items-center gap-2 text-sm"><Icone nome="telefone" className="text-slate-400" />{telefone(l.telefone)}</p>
           <p className="mt-2 text-xs text-slate-500">CNPJ {l.cnpj} · Farmacêutico presente durante todo o horário de funcionamento.</p>
           <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${l.logradouro} ${l.numero} ${l.cidade}`)}`} target="_blank" rel="noopener noreferrer" className="link mt-3 inline-block text-sm">Como chegar →</a>
         </article>

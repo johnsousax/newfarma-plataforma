@@ -63,7 +63,7 @@ async function Alertas({ lojaId, link }: { lojaId: string; link: (m: Record<stri
               <td className="text-right"><Link href={link({ produto: a.produtoId })} className="link text-sm">Lotes</Link>{(a.tipo === 'RUPTURA' || a.tipo === 'REPOSICAO') && <> · <Link href={`/admin/compras/nova?loja=${lojaId}`} className="link text-sm">Comprar</Link></>}</td>
             </tr>
           ))}
-          {!al.length && <tr><td colSpan={5} className="py-10 text-center text-slate-500">Tudo em ordem: nenhum alerta nesta loja. ✅</td></tr>}
+          {!al.length && <tr><td colSpan={5} className="py-10 text-center text-slate-500">Tudo em ordem: nenhum alerta nesta loja.</td></tr>}
         </tbody>
       </table>
     </div>

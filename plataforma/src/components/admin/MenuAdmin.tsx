@@ -2,8 +2,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cx } from '@/components/ui';
+import { Icone, type NomeIcone } from '@/components/icones';
 
-export type ItemMenu = { href: string; icone: string; rotulo: string; grupo: string; contador?: number };
+export type ItemMenu = { href: string; icone: NomeIcone; rotulo: string; grupo: string; contador?: number };
 
 export function MenuAdmin({ itens }: { itens: ItemMenu[] }) {
   const atual = usePathname();
@@ -17,7 +18,7 @@ export function MenuAdmin({ itens }: { itens: ItemMenu[] }) {
             const ativo = i.href === '/admin' ? atual === '/admin' : atual.startsWith(i.href);
             return (
               <Link key={i.href} href={i.href} aria-current={ativo ? 'page' : undefined} className={cx('flex items-center gap-3 rounded-lg px-3 py-2 text-sm', ativo ? 'bg-white/10 font-semibold text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white')}>
-                <span aria-hidden className="w-5 text-center">{i.icone}</span>
+                <Icone nome={i.icone} className="h-[18px] w-[18px]" />
                 <span className="flex-1">{i.rotulo}</span>
                 {!!i.contador && <span className="rounded-full bg-oferta-600 px-1.5 text-[11px] font-bold text-white">{i.contador}</span>}
               </Link>

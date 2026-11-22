@@ -50,8 +50,8 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/admin'>['s
 
       {(receitas > 0 || contAlertas.RUPTURA + contAlertas.VENCIDO > 0) && (
         <div className="grid gap-3 md:grid-cols-2">
-          {receitas > 0 && pode(u.papel, 'verReceitas') && <Link href="/admin/receitas"><Aviso tipo="alerta">📋 <strong>{receitas} receita(s)</strong> aguardando validação farmacêutica →</Aviso></Link>}
-          {contAlertas.RUPTURA + contAlertas.VENCIDO > 0 && <Link href="/admin/estoque"><Aviso tipo="erro">🏷️ <strong>{contAlertas.RUPTURA}</strong> rupturas e <strong>{contAlertas.VENCIDO}</strong> lotes vencidos · {contAlertas.REPOSICAO} itens abaixo do mínimo →</Aviso></Link>}
+          {receitas > 0 && pode(u.papel, 'verReceitas') && <Link href="/admin/receitas"><Aviso tipo="alerta"><strong>{receitas} receita(s)</strong> aguardando validação farmacêutica →</Aviso></Link>}
+          {contAlertas.RUPTURA + contAlertas.VENCIDO > 0 && <Link href="/admin/estoque"><Aviso tipo="erro"><strong>{contAlertas.RUPTURA}</strong> rupturas e <strong>{contAlertas.VENCIDO}</strong> lotes vencidos · {contAlertas.REPOSICAO} itens abaixo do mínimo →</Aviso></Link>}
         </div>
       )}
 

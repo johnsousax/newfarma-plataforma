@@ -841,6 +841,8 @@ model Conversa {
   usuarioId      String
   usuario        Usuario        @relation("ConversasCliente", fields: [usuarioId], references: [id], onDelete: Cascade)
   status         StatusConversa @default(ASSISTENTE)
+  /// Título curto para o histórico (gerado da primeira pergunta)
+  titulo         String?
   farmaceuticoId String?
   farmaceutico   Usuario?       @relation("ConversasFarmaceutico", fields: [farmaceuticoId], references: [id])
   /// Motivo do encaminhamento ao farmacêutico (ex.: interação, posologia, emergência)
@@ -879,6 +881,14 @@ model Integracao {
   chave         String   @id
   valorCifrado  String
   finalVisivel  String
+  atualizadoPor String?
+  atualizadoEm  DateTime @updatedAt
+}
+
+/// Configurações da loja editadas pelo dono no painel (valores não secretos)
+model Configuracao {
+  chave         String   @id
+  valor         Json
   atualizadoPor String?
   atualizadoEm  DateTime @updatedAt
 }

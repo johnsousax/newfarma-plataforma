@@ -5,7 +5,7 @@ import { db } from '@/server/db';
 import { executar, ErroNegocio } from '@/server/erros';
 import { exigirUsuario, exigirPermissao, ipAtual, limitarTaxa } from '@/server/auth';
 import { auditar } from '@/server/auditoria';
-import { perguntar, chamarFarmaceutico, encerrarConversa, conversaAtiva, responderComoFarmaceutico, finalizarAtendimento } from '@/server/assistente/conversas';
+import { perguntar, excluirConversa, responderComoFarmaceutico, finalizarAtendimento, assumirAtendimento } from '@/server/assistente/conversas';
 import { VERSAO_REGRAS } from '@/server/assistente/regras';
 
 export async function aceitarTermoAssistente() {
@@ -26,30 +26,21 @@ export async function revogarTermoAssistente() {
   });
 }
 
-export async function perguntarAcao(_: unknown, form: FormData) {
+/** Envia a pergunta; devolve o id da conversa (nova ou existente). */
+export async function perguntarAcao(form: FormData) {
   return executar(async () => {
     const u = await exigirUsuario();
-    limitarTaxa(`assistente:${u.id}`, 8, 60_000);
+    limitarTaxa(`assistente:${u.id}`, 6, 60_000);
     const arquivo = form.get('foto');
-    await perguntar(u, String(form.get('texto') ?? ''), arquivo instanceof File && arquivo.size ? arquivo : null, await ipAtual());
-    refresh();
+    const conversaId = form.get('conversaId') ? z.string().uuid().parse(form.get('conversaId')) : null;
+    return perguntar(u, { conversaId, texto: String(form.get('texto') ?? ''), arquivo: arquivo instanceof File && arquivo.size ? arquivo : null }, await ipAtual());
   });
 }
 
-export async function chamarFarmaceuticoAcao() {
+export async function excluirConversaAcao(id: string) {
   return executar(async () => {
     const u = await exigirUsuario();
-    await chamarFarmaceutico(u);
-    refresh();
-  });
-}
-
-export async function novaConversaAcao() {
-  return executar(async () => {
-    const u = await exigirUsuario();
-    const c = await conversaAtiva(u.id);
-    if (c) await encerrarConversa(u.id, c.id);
-    refresh();
+    await excluirConversa(u.id, z.string().uuid().parse(id));
   });
 }
 
@@ -61,6 +52,14 @@ export async function responderAtendimentoAcao(_: unknown, form: FormData) {
     await responderComoFarmaceutico(u, z.string().uuid().parse(form.get('conversaId')), String(form.get('texto') ?? ''), await ipAtual());
     refresh();
   }, 'Resposta enviada');
+}
+
+export async function assumirAtendimentoAcao(conversaId: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('atendimento');
+    await assumirAtendimento(u, z.string().uuid().parse(conversaId));
+    refresh();
+  });
 }
 
 export async function encerrarAtendimentoAcao(conversaId: string) {

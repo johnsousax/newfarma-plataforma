@@ -72,7 +72,7 @@ export async function ResultadoBusca({ base, sp, categoriaSlug, titulo }: { base
 
       {cat && cat.filhas.length > 0 && (
         <div className="sem-barra mb-5 flex gap-2 overflow-x-auto">
-          {cat.filhas.map((c) => <Link key={c.id} href={`/categoria/${c.slug}`} className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:border-marca-400 hover:text-marca-800">{c.icone} {c.nome}</Link>)}
+          {cat.filhas.map((c) => <Link key={c.id} href={`/categoria/${c.slug}`} className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:border-marca-400 hover:text-marca-800">{c.nome}</Link>)}
         </div>
       )}
 
@@ -85,7 +85,7 @@ export async function ResultadoBusca({ base, sp, categoriaSlug, titulo }: { base
                 <div>
                   <h3 className="mb-2 font-semibold text-slate-800">Categorias</h3>
                   <ul className="space-y-1">
-                    {cats.map((c) => <li key={c.id}><Link href={urlCom(`/categoria/${c.slug}`, { q: f.q }, {})} className="text-slate-600 hover:text-marca-700">{c.icone} {c.nome}</Link></li>)}
+                    {cats.map((c) => <li key={c.id}><Link href={urlCom(`/categoria/${c.slug}`, { q: f.q }, {})} className="text-slate-600 hover:text-marca-700">{c.nome}</Link></li>)}
                   </ul>
                 </div>
               )}
@@ -132,7 +132,7 @@ export async function ResultadoBusca({ base, sp, categoriaSlug, titulo }: { base
               <Paginacao pagina={r.pagina} paginas={r.paginas} href={(p) => urlCom(base, sp, { pagina: String(p) })} />
             </>
           ) : (
-            <Vazio icone="🔍" titulo="Nenhum produto encontrado" texto="Tente outro termo, como o princípio ativo (ex.: “paracetamol”), ou remova alguns filtros." acao={<BotaoLink href="/busca">Ver todos os produtos</BotaoLink>} />
+            <Vazio icone="busca" titulo="Nenhum produto encontrado" texto="Tente outro termo, como o princípio ativo (ex.: “paracetamol”), ou remova alguns filtros." acao={<BotaoLink href="/busca">Ver todos os produtos</BotaoLink>} />
           )}
         </div>
       </div>

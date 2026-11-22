@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { criarCompraAcao } from '@/app/acoes/admin';
 import { Aviso, Botao } from '@/components/ui';
 import { brl } from '@/lib/formato';
+import { Icone } from '@/components/icones';
 
 type Prod = { id: string; nome: string; sku: string; custo: number };
 type Sug = { produtoId: string; sugerido: number; custo: number; disponivel: number; minimo: number; vendidos30: number };
@@ -25,7 +26,7 @@ export function NovaCompra({ fornecedores, lojas, produtos, sugestao, lojaId }: 
       <div className="cartao grid gap-3 p-5 md:grid-cols-3">
         <label><span className="rotulo">Fornecedor</span><select value={fornecedorId} onChange={(e) => setF(e.target.value)} className="campo">{fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label>
         <label><span className="rotulo">Loja de entrega</span><select defaultValue={lojaId} onChange={(e) => { router.push(`/admin/compras/nova?loja=${e.target.value}`); }} className="campo">{lojas.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}</select></label>
-        <div className="flex items-end"><Botao variante="secundario" onClick={() => setLinhas(sugestao.map((s) => ({ produtoId: s.produtoId, quantidade: s.sugerido, custo: c2r(s.custo) })))} disabled={!sugestao.length}>✨ Preencher com sugestão ({sugestao.length} itens abaixo do mínimo)</Botao></div>
+        <div className="flex items-end"><Botao variante="secundario" onClick={() => setLinhas(sugestao.map((s) => ({ produtoId: s.produtoId, quantidade: s.sugerido, custo: c2r(s.custo) })))} disabled={!sugestao.length}><Icone nome="brilho" />Preencher com sugestão ({sugestao.length} itens abaixo do mínimo)</Botao></div>
       </div>
       <div className="cartao overflow-x-auto">
         <table className="tabela">
@@ -40,7 +41,7 @@ export function NovaCompra({ fornecedores, lojas, produtos, sugestao, lojaId }: 
                   <td><input type="number" min={0} value={l.quantidade} onChange={(e) => set(i, { quantidade: Number(e.target.value) })} className="campo py-1.5" /></td>
                   <td><input value={l.custo} onChange={(e) => set(i, { custo: e.target.value })} className="campo py-1.5" /></td>
                   <td className="text-right">{brl(l.quantidade * r2c(l.custo))}</td>
-                  <td><button onClick={() => setLinhas((ls) => ls.filter((_, k) => k !== i))} className="text-rose-600" aria-label="Remover">✕</button></td>
+                  <td><button onClick={() => setLinhas((ls) => ls.filter((_, k) => k !== i))} className="text-rose-600" aria-label="Remover"><Icone nome="excluir" /></button></td>
                 </tr>
               );
             })}

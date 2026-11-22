@@ -14,7 +14,7 @@ async function Conteudo() {
   await connection();
   await paginaAdmin('avaliacoes');
   const lista = await db.avaliacao.findMany({ where: { status: 'PENDENTE' }, orderBy: { criadoEm: 'asc' }, take: 50, include: { produto: { select: { nome: true, slug: true } }, usuario: { select: { nome: true } } } });
-  if (!lista.length) return <Vazio icone="⭐" titulo="Nenhuma avaliação aguardando moderação" />;
+  if (!lista.length) return <Vazio icone="estrela" titulo="Nenhuma avaliação aguardando moderação" />;
   return (
     <ul className="space-y-3">
       {lista.map((a) => (

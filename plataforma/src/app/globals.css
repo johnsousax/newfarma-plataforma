@@ -87,3 +87,8 @@ h1, h2, h3 {
     @apply bg-slate-50/70;
   }
 }
+
+@keyframes brilho {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}

@@ -82,6 +82,18 @@ src/components/    UI da loja, checkout, conta e painel
 tests/             testes de integração (Vitest + Postgres real)
 ```
 
+## Onde está no ar
+
+| O quê | Onde |
+|---|---|
+| Prévia (produção do projeto novo) | https://newfarma-plataforma.vercel.app |
+| Projeto Vercel | `newfarma-plataforma` (região iad1). Cada push na `main` publica sozinho; o diretório raiz é `plataforma/` |
+| Código | https://github.com/johnsousax/newfarma-plataforma (privado) |
+| Banco | Supabase "Fluxo zero", **schema `newfarma`**, usuário exclusivo `newfarma_app` (não acessa as tabelas dos outros projetos) |
+| Site antigo | Projeto Vercel `newfarmapopular`, ainda servindo newpopularfarma.com.br até a virada |
+
+Migrações em produção: `DATABASE_URL_MIGRACAO=<pooler porta 5432 ?schema=newfarma> npx prisma migrate deploy`.
+
 ## Antes de publicar (dados da New Farma)
 
 Preencha no `.env`: **AFE**, **nome e CRF do farmacêutico responsável**, **WhatsApp**, telefone e e-mail. Em *Painel › Lojas*, ajuste o **endereço real da loja** e as **faixas de CEP** de entrega. Cadastre as **fotos** e os **preços reais** dos produtos. O catálogo do seed é fictício.

@@ -1,0 +1,9 @@
+# Nunca enviar para a Vercel: segredos, banco local e artefatos gerados
+.env
+.env.*
+!.env.example
+.data
+.next
+node_modules
+src/generated
+tsconfig.tsbuildinfo

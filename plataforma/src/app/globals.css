@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Identidade New Farma Popular: amarelo #FFC20E, vermelho #D71920, azul #1B2A72 */
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-slab: var(--font-roboto-slab), Rockwell, Georgia, serif;
+  --font-script: var(--font-yellowtail), "Brush Script MT", cursive;
+  --font-mono: ui-monospace, monospace;
+
+  /* Azul da marca (texto, botões principais, faixas) */
+  --color-marca-50: #eef1fb;
+  --color-marca-100: #dbe1f6;
+  --color-marca-200: #b9c4ec;
+  --color-marca-300: #8b9ddd;
+  --color-marca-400: #5c73c9;
+  --color-marca-500: #2a3f94;
+  --color-marca-600: #1b2a72;
+  --color-marca-700: #152159;
+  --color-marca-800: #101a47;
+  --color-marca-900: #0d153a;
+  --color-marca-950: #080d24;
+
+  /* Vermelho (preços, ofertas, comprar) */
+  --color-oferta-50: #fdecec;
+  --color-oferta-100: #fad4d5;
+  --color-oferta-500: #e8474d;
+  --color-oferta-600: #d71920;
+  --color-oferta-700: #b3141a;
+
+  /* Amarelo (destaques, hero, selos) */
+  --color-amarelo-50: #fff7e0;
+  --color-amarelo-100: #ffeeb8;
+  --color-amarelo-300: #ffd75c;
+  --color-amarelo-400: #ffc20e;
+  --color-amarelo-500: #f0ad00;
+  --color-amarelo-700: #7a4b00;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #fffdf7;
+  color: #14183a;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-slab);
+  letter-spacing: -0.01em;
+}
+
+/* Rolagem horizontal das prateleiras sem barra visível */
+.sem-barra {
+  scrollbar-width: none;
+}
+.sem-barra::-webkit-scrollbar {
+  display: none;
+}
+
+@layer components {
+  .container-loja {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6;
+  }
+  .cartao {
+    @apply rounded-2xl border border-slate-200 bg-white;
+  }
+  .campo {
+    @apply block w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-marca-600 focus:ring-4 focus:ring-marca-100 disabled:bg-slate-100;
+  }
+  .rotulo {
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
+  }
+  .link {
+    @apply font-medium text-marca-700 underline-offset-2 hover:underline;
+  }
+  .tabela {
+    @apply w-full text-left text-sm;
+  }
+  .tabela th {
+    @apply border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+  .tabela td {
+    @apply border-b border-slate-100 px-3 py-2.5 align-middle;
+  }
+  .tabela tbody tr:hover {
+    @apply bg-slate-50/70;
+  }
+}

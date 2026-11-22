@@ -1,5 +1,9 @@
 # 💊 App Farmácia — venda online com conformidade ANVISA
 
+> **🚀 Nova versão:** a plataforma completa (Next.js + PostgreSQL), com loja, conta do cliente e backoffice, está em [`plataforma/`](plataforma/README.md). Para rodar: `cd plataforma && npm install && npm run dev`.
+> Esta pasta raiz mantém a versão 1 (Node sem dependências) como referência.
+
+
 Aplicativo web (PWA) e API para uma farmácia vender online com:
 
 | # | Funcionalidade | Onde está |

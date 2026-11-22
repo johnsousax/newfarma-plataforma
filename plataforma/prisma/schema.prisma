@@ -1,0 +1,873 @@
+// Modelo de dados da plataforma Farmácia (PostgreSQL).
+// Valores monetários em CENTAVOS (Int) para evitar erro de arredondamento.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────── Enums ───────────────────────────────
+
+enum Papel {
+  CLIENTE
+  ATENDENTE
+  FARMACEUTICO
+  GERENTE
+  ADMIN
+}
+
+enum Classificacao {
+  NAO_MEDICAMENTO
+  MIP
+  TARJA_VERMELHA
+  ANTIMICROBIANO
+  CONTROLADO
+}
+
+enum TipoMedicamento {
+  NAO_SE_APLICA
+  REFERENCIA
+  GENERICO
+  SIMILAR
+}
+
+enum StatusPedido {
+  AGUARDANDO_RECEITA
+  AGUARDANDO_PAGAMENTO
+  PAGO
+  EM_SEPARACAO
+  PRONTO_PARA_RETIRADA
+  SAIU_PARA_ENTREGA
+  ENTREGUE
+  CANCELADO
+}
+
+enum Modalidade {
+  ENTREGA_PADRAO
+  ENTREGA_EXPRESSA
+  RETIRADA
+  BALCAO
+}
+
+enum Canal {
+  SITE
+  PDV
+  IFOOD
+  WHATSAPP
+}
+
+enum MetodoPagamento {
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  PIX
+  DINHEIRO
+}
+
+enum StatusPagamento {
+  PENDENTE
+  APROVADO
+  RECUSADO
+  EXPIRADO
+  ESTORNADO
+}
+
+enum StatusReceita {
+  PENDENTE
+  APROVADA
+  REJEITADA
+}
+
+enum StatusModeracao {
+  PENDENTE
+  APROVADA
+  REJEITADA
+}
+
+enum TipoCupom {
+  PERCENTUAL
+  VALOR_FIXO
+  FRETE_GRATIS
+}
+
+enum TipoPromocao {
+  PERCENTUAL
+  LEVE_PAGUE
+}
+
+enum TipoMovimento {
+  ENTRADA
+  SAIDA_VENDA
+  AJUSTE_POSITIVO
+  AJUSTE_NEGATIVO
+  PERDA
+  RESERVA
+  LIBERACAO
+}
+
+enum StatusCompra {
+  RASCUNHO
+  ENVIADO
+  RECEBIDO
+  CANCELADO
+}
+
+enum StatusCaixa {
+  ABERTO
+  FECHADO
+}
+
+enum TipoMovCaixa {
+  SUPRIMENTO
+  SANGRIA
+  VENDA
+}
+
+// ─────────────────────────────── Lojas e pessoas ───────────────────────────────
+
+model Loja {
+  id                 String   @id @default(uuid())
+  nome               String
+  slug               String   @unique
+  cnpj               String
+  telefone           String
+  cep                String
+  logradouro         String
+  numero             String
+  bairro             String
+  cidade             String
+  uf                 String
+  horario            String
+  /// Faixas de CEP atendidas com entrega local, ex.: ["01000-03999", "04000-04999"]
+  faixasCep          String[]
+  aceitaExpressa     Boolean  @default(true)
+  /// Centro de distribuição: atende entregas padrão para todo o Brasil
+  centroDistribuicao Boolean  @default(false)
+  ativa              Boolean  @default(true)
+  criadoEm           DateTime @default(now())
+
+  equipe   Usuario[]
+  lotes    Lote[]
+  pedidos  Pedido[]
+  compras  PedidoCompra[]
+  caixas   CaixaSessao[]
+  movimentos MovimentoEstoque[]
+}
+
+model Usuario {
+  id               String    @id @default(uuid())
+  nome             String
+  email            String    @unique
+  senhaHash        String
+  /// CPF cifrado (AES-256-GCM) + hash para busca/unicidade sem expor o dado
+  cpfCifrado       String?
+  cpfHash          String?   @unique
+  telefone         String?
+  nascimento       DateTime?
+  papel            Papel     @default(CLIENTE)
+  lojaId           String?
+  loja             Loja?     @relation(fields: [lojaId], references: [id])
+  crf              String?
+  pontos           Int       @default(0)
+  consentimentoLgpdEm DateTime?
+  /// Consentimento específico para o assistente tratar dados de saúde (LGPD art. 11)
+  consentimentoAssistenteEm DateTime?
+  aceitaMarketing  Boolean   @default(false)
+  tentativasFalhas Int       @default(0)
+  bloqueadoAte     DateTime?
+  ativo            Boolean   @default(true)
+  criadoEm         DateTime  @default(now())
+  atualizadoEm     DateTime  @updatedAt
+
+  sessoes      Sessao[]
+  enderecos    Endereco[]
+  pedidos      Pedido[]      @relation("PedidosCliente")
+  favoritos    Favorito[]
+  avaliacoes   Avaliacao[]
+  carrinho     Carrinho?
+  assinaturas  Assinatura[]
+  lembretes    Lembrete[]
+  movPontos    MovimentoPontos[]
+  receitas     Receita[]     @relation("ReceitasCliente")
+  receitasAvaliadas Receita[] @relation("ReceitasFarmaceutico")
+  caixas       CaixaSessao[]
+  tokensSenha  TokenSenha[]
+  conversas    Conversa[]    @relation("ConversasCliente")
+  conversasAtendidas Conversa[] @relation("ConversasFarmaceutico")
+
+  @@index([papel])
+}
+
+model Sessao {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expiraEm  DateTime
+  ip        String?
+  userAgent String?
+  criadoEm  DateTime @default(now())
+
+  @@index([usuarioId])
+}
+
+model Endereco {
+  id           String   @id @default(uuid())
+  usuarioId    String
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  apelido      String
+  destinatario String
+  cep          String
+  logradouro   String
+  numero       String
+  complemento  String?
+  bairro       String
+  cidade       String
+  uf           String
+  principal    Boolean  @default(false)
+  criadoEm     DateTime @default(now())
+
+  assinaturas Assinatura[]
+
+  @@index([usuarioId])
+}
+
+// ─────────────────────────────── Catálogo ───────────────────────────────
+
+model Categoria {
+  id        String      @id @default(uuid())
+  nome      String
+  slug      String      @unique
+  descricao String?
+  icone     String
+  cor       String      @default("#0f766e")
+  ordem     Int         @default(0)
+  paiId     String?
+  pai       Categoria?  @relation("Hierarquia", fields: [paiId], references: [id])
+  filhas    Categoria[] @relation("Hierarquia")
+  produtos  Produto[]
+  promocoes Promocao[]
+}
+
+model Marca {
+  id         String     @id @default(uuid())
+  nome       String
+  slug       String     @unique
+  fabricante String?
+  produtos   Produto[]
+  promocoes  Promocao[]
+}
+
+model Produto {
+  id                 String          @id @default(uuid())
+  sku                String          @unique
+  ean                String?         @unique
+  nome               String
+  slug               String          @unique
+  /// Texto normalizado (minúsculo, sem acento) para busca
+  busca              String
+  descricaoCurta     String
+  descricao          String
+  marcaId            String
+  marca              Marca           @relation(fields: [marcaId], references: [id])
+  categoriaId        String
+  categoria          Categoria       @relation(fields: [categoriaId], references: [id])
+  classificacao      Classificacao
+  tipo               TipoMedicamento @default(NAO_SE_APLICA)
+  principioAtivo     String?
+  concentracao       String?
+  formaFarmaceutica  String?
+  apresentacao       String?
+  registroAnvisa     String?
+  indicacoes         String?
+  contraindicacoes   String?
+  modoDeUsar         String?
+  advertencias       String?
+  /// Preço de venda
+  preco              Int
+  /// Preço "de" (riscado) para comunicar desconto
+  precoDe            Int?
+  /// Preço Máximo ao Consumidor (CMED) — o preço de venda nunca pode superá-lo
+  pmc                Int?
+  /// Custo médio (para margem nos relatórios)
+  custo              Int?
+  icone              String          @default("💊")
+  estoqueMinimo      Int             @default(10)
+  pesoGramas         Int             @default(100)
+  ativo              Boolean         @default(true)
+  destaque           Boolean         @default(false)
+  /// Unidades vendidas (alimenta "mais vendidos")
+  vendas             Int             @default(0)
+  tags               String[]
+  criadoEm           DateTime        @default(now())
+  atualizadoEm       DateTime        @updatedAt
+
+  lotes          Lote[]
+  movimentos     MovimentoEstoque[]
+  historicoPreco HistoricoPreco[]
+  avaliacoes     Avaliacao[]
+  favoritos      Favorito[]
+  itensCarrinho  CarrinhoItem[]
+  itensPedido    PedidoItem[]
+  itensCompra    PedidoCompraItem[]
+  assinaturas    Assinatura[]
+  lembretes      Lembrete[]
+  escrituracoes  Escrituracao[]
+  promocoes      Promocao[]         @relation("PromocaoProdutos")
+  imagens        ImagemProduto[]
+
+  @@index([categoriaId])
+  @@index([marcaId])
+  @@index([principioAtivo])
+  @@index([ativo, destaque])
+  @@index([vendas])
+}
+
+model HistoricoPreco {
+  id            String   @id @default(uuid())
+  produtoId     String
+  produto       Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  precoAnterior Int
+  precoNovo     Int
+  usuarioId     String?
+  motivo        String?
+  criadoEm      DateTime @default(now())
+
+  @@index([produtoId])
+}
+
+model Avaliacao {
+  id               String          @id @default(uuid())
+  produtoId        String
+  produto          Produto         @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  usuarioId        String
+  usuario          Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  nota             Int
+  titulo           String
+  comentario       String
+  status           StatusModeracao @default(PENDENTE)
+  compraVerificada Boolean         @default(false)
+  criadoEm         DateTime        @default(now())
+
+  @@unique([produtoId, usuarioId])
+  @@index([produtoId, status])
+}
+
+model Favorito {
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  produtoId String
+  produto   Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  criadoEm  DateTime @default(now())
+
+  @@id([usuarioId, produtoId])
+}
+
+// ─────────────────────────────── Marketing ───────────────────────────────
+
+model Banner {
+  id         String    @id @default(uuid())
+  titulo     String
+  subtitulo  String?
+  textoBotao String    @default("Aproveitar")
+  link       String
+  corDe      String    @default("#0f766e")
+  corPara    String    @default("#14b8a6")
+  icone      String    @default("💊")
+  ordem      Int       @default(0)
+  ativo      Boolean   @default(true)
+  inicio     DateTime?
+  fim        DateTime?
+  criadoEm   DateTime  @default(now())
+}
+
+model Promocao {
+  id          String       @id @default(uuid())
+  nome        String
+  tipo        TipoPromocao
+  /// PERCENTUAL: % de desconto
+  percentual  Int?
+  /// LEVE_PAGUE: leve N, pague M
+  leve        Int?
+  pague       Int?
+  categoriaId String?
+  categoria   Categoria?   @relation(fields: [categoriaId], references: [id])
+  marcaId     String?
+  marca       Marca?       @relation(fields: [marcaId], references: [id])
+  produtos    Produto[]    @relation("PromocaoProdutos")
+  inicio      DateTime
+  fim         DateTime
+  ativa       Boolean      @default(true)
+  criadoEm    DateTime     @default(now())
+}
+
+model Cupom {
+  id             String    @id @default(uuid())
+  codigo         String    @unique
+  descricao      String
+  tipo           TipoCupom
+  /// PERCENTUAL: 0-100 · VALOR_FIXO: centavos · FRETE_GRATIS: ignorado
+  valor          Int       @default(0)
+  minimoPedido   Int       @default(0)
+  usoMaximo      Int?
+  usoPorCliente  Int       @default(1)
+  usos           Int       @default(0)
+  primeiraCompra Boolean   @default(false)
+  inicio         DateTime?
+  fim            DateTime?
+  ativo          Boolean   @default(true)
+  criadoEm       DateTime  @default(now())
+
+  pedidos Pedido[]
+}
+
+// ─────────────────────────────── Estoque ───────────────────────────────
+
+model Lote {
+  id         String   @id @default(uuid())
+  produtoId  String
+  produto    Produto  @relation(fields: [produtoId], references: [id])
+  lojaId     String
+  loja       Loja     @relation(fields: [lojaId], references: [id])
+  codigo     String
+  validade   DateTime
+  quantidade Int
+  reservado  Int      @default(0)
+  custoUnit  Int?
+  criadoEm   DateTime @default(now())
+
+  movimentos MovimentoEstoque[]
+
+  @@unique([produtoId, lojaId, codigo])
+  @@index([lojaId, produtoId])
+  @@index([validade])
+}
+
+model MovimentoEstoque {
+  id         String        @id @default(uuid())
+  produtoId  String
+  produto    Produto       @relation(fields: [produtoId], references: [id])
+  lojaId     String
+  loja       Loja          @relation(fields: [lojaId], references: [id])
+  loteId     String?
+  lote       Lote?         @relation(fields: [loteId], references: [id])
+  tipo       TipoMovimento
+  quantidade Int
+  motivo     String?
+  usuarioId  String?
+  pedidoId   String?
+  compraId   String?
+  criadoEm   DateTime      @default(now())
+
+  @@index([lojaId, criadoEm])
+  @@index([produtoId])
+}
+
+// ─────────────────────────────── Carrinho e pedidos ───────────────────────────────
+
+model Carrinho {
+  id           String         @id @default(uuid())
+  usuarioId    String?        @unique
+  usuario      Usuario?       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  cupomCodigo  String?
+  cep          String?
+  atualizadoEm DateTime       @updatedAt
+  criadoEm     DateTime       @default(now())
+  itens        CarrinhoItem[]
+}
+
+model CarrinhoItem {
+  id         String   @id @default(uuid())
+  carrinhoId String
+  carrinho   Carrinho @relation(fields: [carrinhoId], references: [id], onDelete: Cascade)
+  produtoId  String
+  produto    Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  quantidade Int
+
+  @@unique([carrinhoId, produtoId])
+}
+
+model Pedido {
+  id                String           @id @default(uuid())
+  numero            Int              @unique @default(autoincrement())
+  usuarioId         String?
+  usuario           Usuario?         @relation("PedidosCliente", fields: [usuarioId], references: [id])
+  lojaId            String
+  loja              Loja             @relation(fields: [lojaId], references: [id])
+  canal             Canal            @default(SITE)
+  status            StatusPedido
+  modalidade        Modalidade
+  /// Cópia do endereço no momento da compra
+  enderecoEntrega   Json?
+  subtotal          Int
+  descontoPromocoes Int              @default(0)
+  descontoCupom     Int              @default(0)
+  descontoPontos    Int              @default(0)
+  frete             Int              @default(0)
+  total             Int
+  cupomId           String?
+  cupom             Cupom?           @relation(fields: [cupomId], references: [id])
+  pontosUsados      Int              @default(0)
+  pontosGanhos      Int              @default(0)
+  metodoPagamento   MetodoPagamento?
+  previsaoEntrega   DateTime?
+  observacao        String?
+  cpfNaNota         String?
+  clienteNome       String?
+  operadorId        String?
+  caixaId           String?
+  caixa             CaixaSessao?     @relation(fields: [caixaId], references: [id])
+  assinaturaId      String?
+  criadoEm          DateTime         @default(now())
+  atualizadoEm      DateTime         @updatedAt
+
+  itens         PedidoItem[]
+  eventos       PedidoEvento[]
+  pagamentos    Pagamento[]
+  receitas      Receita[]
+  escrituracoes Escrituracao[]
+
+  @@index([usuarioId, criadoEm])
+  @@index([status])
+  @@index([lojaId, criadoEm])
+  @@index([criadoEm])
+}
+
+model PedidoItem {
+  id            String        @id @default(uuid())
+  pedidoId      String
+  pedido        Pedido        @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  produtoId     String
+  produto       Produto       @relation(fields: [produtoId], references: [id])
+  nome          String
+  sku           String
+  classificacao Classificacao
+  quantidade    Int
+  precoUnitario Int
+  desconto      Int           @default(0)
+  total         Int
+  custoUnitario Int?
+  /// [{ loteId, codigo, validade, quantidade }]
+  alocacoes     Json          @default("[]")
+}
+
+model PedidoEvento {
+  id        String       @id @default(uuid())
+  pedidoId  String
+  pedido    Pedido       @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  status    StatusPedido
+  descricao String
+  usuarioId String?
+  criadoEm  DateTime     @default(now())
+
+  @@index([pedidoId])
+}
+
+model Pagamento {
+  id             String          @id @default(uuid())
+  pedidoId       String
+  pedido         Pedido          @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  metodo         MetodoPagamento
+  status         StatusPagamento
+  valor          Int
+  parcelas       Int             @default(1)
+  gatewayId      String          @unique
+  cartaoBandeira String?
+  cartaoFinal    String?
+  pixCopiaECola  String?
+  pixExpiraEm    DateTime?
+  valorRecebido  Int?
+  troco          Int?
+  motivoRecusa   String?
+  criadoEm       DateTime        @default(now())
+  atualizadoEm   DateTime        @updatedAt
+
+  @@index([pedidoId])
+  @@index([status, pixExpiraEm])
+}
+
+// ─────────────────────────────── ANVISA ───────────────────────────────
+
+model Receita {
+  id               String        @id @default(uuid())
+  pedidoId         String
+  pedido           Pedido        @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  usuarioId        String
+  usuario          Usuario       @relation("ReceitasCliente", fields: [usuarioId], references: [id])
+  /// Arquivo cifrado com AES-256-GCM (dado sensível de saúde — LGPD art. 11)
+  arquivoCifrado   Bytes
+  mime             String
+  tamanho          Int
+  prescritorCifrado String
+  registroPrescritor String
+  dataEmissao      DateTime
+  status           StatusReceita @default(PENDENTE)
+  farmaceuticoId   String?
+  farmaceutico     Usuario?      @relation("ReceitasFarmaceutico", fields: [farmaceuticoId], references: [id])
+  observacao       String?
+  avaliadoEm       DateTime?
+  criadoEm         DateTime      @default(now())
+
+  escrituracoes Escrituracao[]
+
+  @@index([status])
+  @@index([pedidoId])
+}
+
+/// Livro de escrituração (base para transmissão ao SNGPC)
+model Escrituracao {
+  id                 String   @id @default(uuid())
+  pedidoId           String
+  pedido             Pedido   @relation(fields: [pedidoId], references: [id])
+  produtoId          String
+  produto            Produto  @relation(fields: [produtoId], references: [id])
+  lojaId             String
+  registroAnvisa     String?
+  principioAtivo     String?
+  quantidade         Int
+  lotes              Json
+  receitaId          String?
+  receita            Receita? @relation(fields: [receitaId], references: [id])
+  registroPrescritor String?
+  farmaceuticoId     String
+  crfFarmaceutico    String
+  transmitidoSngpc   Boolean  @default(false)
+  criadoEm           DateTime @default(now())
+
+  @@index([criadoEm])
+}
+
+// ─────────────────────────────── Conta do cliente ───────────────────────────────
+
+model Assinatura {
+  id                 String    @id @default(uuid())
+  usuarioId          String
+  usuario            Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  produtoId          String
+  produto            Produto   @relation(fields: [produtoId], references: [id])
+  enderecoId         String?
+  endereco           Endereco? @relation(fields: [enderecoId], references: [id], onDelete: SetNull)
+  quantidade         Int
+  intervaloDias      Int
+  descontoPercentual Int       @default(10)
+  proximaEntrega     DateTime
+  ativa              Boolean   @default(true)
+  criadoEm           DateTime  @default(now())
+
+  @@index([usuarioId])
+  @@index([ativa, proximaEntrega])
+}
+
+model Lembrete {
+  id              String    @id @default(uuid())
+  usuarioId       String
+  usuario         Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  produtoId       String?
+  produto         Produto?  @relation(fields: [produtoId], references: [id], onDelete: SetNull)
+  nomeMedicamento String
+  dosagem         String?
+  /// Horários "HH:MM"
+  horarios        String[]
+  inicio          DateTime
+  fim             DateTime?
+  /// Quantidade de doses na embalagem — usada para avisar a hora de recomprar
+  dosesRestantes  Int?
+  ativo           Boolean   @default(true)
+  criadoEm        DateTime  @default(now())
+
+  @@index([usuarioId])
+}
+
+model MovimentoPontos {
+  id        String    @id @default(uuid())
+  usuarioId String
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  pedidoId  String?
+  pontos    Int
+  descricao String
+  expiraEm  DateTime?
+  criadoEm  DateTime  @default(now())
+
+  @@index([usuarioId, criadoEm])
+}
+
+// ─────────────────────────────── Compras ───────────────────────────────
+
+model Fornecedor {
+  id               String         @id @default(uuid())
+  razaoSocial      String
+  nomeFantasia     String
+  cnpj             String         @unique
+  email            String?
+  telefone         String?
+  contato          String?
+  prazoEntregaDias Int            @default(5)
+  ativo            Boolean        @default(true)
+  criadoEm         DateTime       @default(now())
+  compras          PedidoCompra[]
+}
+
+model PedidoCompra {
+  id           String             @id @default(uuid())
+  numero       Int                @unique @default(autoincrement())
+  fornecedorId String
+  fornecedor   Fornecedor         @relation(fields: [fornecedorId], references: [id])
+  lojaId       String
+  loja         Loja               @relation(fields: [lojaId], references: [id])
+  status       StatusCompra       @default(RASCUNHO)
+  observacao   String?
+  total        Int                @default(0)
+  criadoPorId  String
+  enviadoEm    DateTime?
+  recebidoEm   DateTime?
+  notaFiscal   String?
+  criadoEm     DateTime           @default(now())
+  itens        PedidoCompraItem[]
+
+  @@index([status])
+}
+
+model PedidoCompraItem {
+  id            String       @id @default(uuid())
+  compraId      String
+  compra        PedidoCompra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  produtoId     String
+  produto       Produto      @relation(fields: [produtoId], references: [id])
+  quantidade    Int
+  custoUnitario Int
+}
+
+// ─────────────────────────────── PDV / Caixa ───────────────────────────────
+
+model CaixaSessao {
+  id                 String          @id @default(uuid())
+  lojaId             String
+  loja               Loja            @relation(fields: [lojaId], references: [id])
+  operadorId         String
+  operador           Usuario         @relation(fields: [operadorId], references: [id])
+  status             StatusCaixa     @default(ABERTO)
+  valorAbertura      Int
+  valorInformado     Int?
+  valorEsperado      Int?
+  diferenca          Int?
+  abertoEm           DateTime        @default(now())
+  fechadoEm          DateTime?
+  movimentos         CaixaMovimento[]
+  vendas             Pedido[]
+
+  @@index([lojaId, status])
+}
+
+model CaixaMovimento {
+  id        String           @id @default(uuid())
+  caixaId   String
+  caixa     CaixaSessao      @relation(fields: [caixaId], references: [id], onDelete: Cascade)
+  tipo      TipoMovCaixa
+  metodo    MetodoPagamento?
+  valor     Int
+  descricao String
+  pedidoId  String?
+  criadoEm  DateTime         @default(now())
+}
+
+// ─────────────────────────────── Auditoria ───────────────────────────────
+
+/// Trilha de auditoria encadeada por hash (detecta adulteração)
+model Auditoria {
+  seq          Int      @id @default(autoincrement())
+  acao         String
+  usuarioId    String?
+  alvo         String?
+  ip           String?
+  detalhes     Json?
+  hashAnterior String
+  hash         String
+  criadoEm     DateTime @default(now())
+
+  @@index([acao])
+  @@index([criadoEm])
+}
+
+// ─────────────────────────────── Recuperação de senha ───────────────────────────────
+
+model TokenSenha {
+  id        String    @id @default(uuid())
+  usuarioId String
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiraEm  DateTime
+  usadoEm   DateTime?
+  criadoEm  DateTime  @default(now())
+
+  @@index([usuarioId])
+}
+
+// ─────────────────────────────── Fotos de produto ───────────────────────────────
+
+model ImagemProduto {
+  id        String   @id @default(uuid())
+  produtoId String
+  produto   Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  mime      String
+  dados     Bytes
+  tamanho   Int
+  ordem     Int      @default(0)
+  criadoEm  DateTime @default(now())
+
+  @@index([produtoId, ordem])
+}
+
+// ─────────────────────────────── Assistente e atendimento ───────────────────────────────
+
+enum StatusConversa {
+  ASSISTENTE
+  AGUARDANDO_FARMACEUTICO
+  EM_ATENDIMENTO
+  ENCERRADA
+}
+
+enum AutorMensagem {
+  CLIENTE
+  ASSISTENTE
+  FARMACEUTICO
+  SISTEMA
+}
+
+model Conversa {
+  id             String         @id @default(uuid())
+  usuarioId      String
+  usuario        Usuario        @relation("ConversasCliente", fields: [usuarioId], references: [id], onDelete: Cascade)
+  status         StatusConversa @default(ASSISTENTE)
+  farmaceuticoId String?
+  farmaceutico   Usuario?       @relation("ConversasFarmaceutico", fields: [farmaceuticoId], references: [id])
+  /// Motivo do encaminhamento ao farmacêutico (ex.: interação, posologia, emergência)
+  motivoEncaminhamento String?
+  emergencia     Boolean        @default(false)
+  criadoEm       DateTime       @default(now())
+  atualizadoEm   DateTime       @updatedAt
+  mensagens      Mensagem[]
+
+  @@index([status, atualizadoEm])
+  @@index([usuarioId, atualizadoEm])
+}
+
+model Mensagem {
+  id         String        @id @default(uuid())
+  conversaId String
+  conversa   Conversa      @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  autor      AutorMensagem
+  autorId    String?
+  /// Texto cifrado (AES-256-GCM): conversa sobre saúde é dado sensível
+  textoCifrado String
+  /// Resposta estruturada do assistente (medicamentos identificados etc.), cifrada
+  dadosCifrados String?
+  /// A imagem NÃO é guardada; só registramos que houve uma
+  teveImagem Boolean       @default(false)
+  bloqueadaPorRegra String?
+  criadoEm   DateTime      @default(now())
+
+  @@index([conversaId, criadoEm])
+}

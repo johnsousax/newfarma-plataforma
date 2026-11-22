@@ -57,14 +57,16 @@ export const PAPEL: Record<Papel, string> = {
 };
 
 export const EQUIPE: Papel[] = ['ATENDENTE', 'FARMACEUTICO', 'GERENTE', 'ADMIN'];
+export const CARGOS_EDITAVEIS: Papel[] = ['ATENDENTE', 'FARMACEUTICO', 'GERENTE'];
 
-/** Permissões do backoffice por papel. */
+/** Permissões PADRÃO do painel por cargo. O dono pode editar em Painel › Permissões (o Administrador sempre tem todas). */
 export const PERMISSOES = {
   painel: ['ATENDENTE', 'FARMACEUTICO', 'GERENTE', 'ADMIN'],
   pedidos: ['ATENDENTE', 'FARMACEUTICO', 'GERENTE', 'ADMIN'],
+  entregas: ['ATENDENTE', 'FARMACEUTICO', 'GERENTE', 'ADMIN'],
   receitas: ['FARMACEUTICO'],
-  atendimento: ['FARMACEUTICO', 'GERENTE', 'ADMIN'],
   verReceitas: ['FARMACEUTICO', 'GERENTE', 'ADMIN'],
+  atendimento: ['FARMACEUTICO', 'GERENTE', 'ADMIN'],
   pdv: ['ATENDENTE', 'FARMACEUTICO', 'GERENTE', 'ADMIN'],
   estoque: ['FARMACEUTICO', 'GERENTE', 'ADMIN'],
   produtos: ['GERENTE', 'ADMIN'],
@@ -73,14 +75,43 @@ export const PERMISSOES = {
   clientes: ['ATENDENTE', 'FARMACEUTICO', 'GERENTE', 'ADMIN'],
   avaliacoes: ['GERENTE', 'ADMIN'],
   relatorios: ['GERENTE', 'ADMIN'],
+  notas: ['GERENTE', 'ADMIN'],
   anvisa: ['FARMACEUTICO', 'GERENTE', 'ADMIN'],
   equipe: ['ADMIN'],
   lojas: ['ADMIN'],
+  configuracoes: ['ADMIN'],
   auditoria: ['ADMIN'],
 } as const satisfies Record<string, Papel[]>;
 
 export type Permissao = keyof typeof PERMISSOES;
-export const pode = (papel: Papel | undefined | null, p: Permissao) => !!papel && (PERMISSOES[p] as readonly Papel[]).includes(papel);
+export type MatrizPermissoes = Record<Permissao, Papel[]>;
+
+export const DESCRICAO_PERMISSAO: Record<Permissao, string> = {
+  painel: 'Entrar no painel e ver a visão geral',
+  pedidos: 'Ver e movimentar pedidos',
+  entregas: 'Despachar pedidos e gerenciar motoboys',
+  receitas: 'Aprovar ou recusar receitas (exige CRF)',
+  verReceitas: 'Visualizar receitas enviadas',
+  atendimento: 'Atendimento farmacêutico (fila da assistente)',
+  pdv: 'Vender no balcão e operar o caixa',
+  estoque: 'Lotes, validade, entradas e ajustes',
+  produtos: 'Cadastrar produtos e alterar preços',
+  compras: 'Pedidos de compra e fornecedores',
+  marketing: 'Promoções, cupons e banners',
+  clientes: 'Consultar clientes',
+  avaliacoes: 'Moderar avaliações',
+  relatorios: 'Relatórios de vendas e margem',
+  notas: 'Notas fiscais',
+  anvisa: 'Escrituração ANVISA / SNGPC',
+  equipe: 'Cadastrar equipe e definir cargos',
+  lojas: 'Dados da loja, entregas e integrações',
+  configuracoes: 'Configurações gerais e permissões',
+  auditoria: 'Trilha de auditoria',
+};
+
+/** Verificação com a matriz padrão (uso em testes e fora de requisição). No servidor use temPermissao(). */
+export const pode = (papel: Papel | undefined | null, p: Permissao, matriz: MatrizPermissoes = PERMISSOES as unknown as MatrizPermissoes) =>
+  !!papel && (papel === 'ADMIN' || (matriz[p] as readonly Papel[]).includes(papel));
 
 export const NIVEIS_FIDELIDADE = [
   { nome: 'Bronze', minimo: 0, multiplicador: 1, cor: '#b45309' },

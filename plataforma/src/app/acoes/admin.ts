@@ -17,6 +17,7 @@ import { normalizar, slugificar } from '@/lib/texto';
 import { Classificacao, TipoMedicamento, StatusPedido, MetodoPagamento, Papel } from '@/generated/prisma/enums';
 
 const uuid = z.string().uuid();
+const ASSINATURA_IMG: Record<string, number[]> = { 'image/jpeg': [0xff, 0xd8, 0xff], 'image/png': [0x89, 0x50, 0x4e, 0x47], 'image/webp': [0x52, 0x49, 0x46, 0x46] };
 /** "12,90" ou "12.90" → 1290 centavos */
 const reais = z.preprocess((v) => (v === '' || v == null ? undefined : Math.round(Number(String(v).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) * 100)), z.number().int().min(0).max(100_000_00));
 const reaisOpc = z.preprocess((v) => (v === '' || v == null ? null : v), reais.nullable());
@@ -252,15 +253,18 @@ export async function salvarCupom(_: unknown, form: FormData) {
     const u = await exigirPermissao('marketing');
     const d = p.data;
     const valor = d.tipo === 'PERCENTUAL' ? z.coerce.number().int().min(1).max(90).parse(d.valor) : d.tipo === 'VALOR_FIXO' ? reais.parse(d.valor) : 0;
+    const id = form.get('id') ? uuid.parse(form.get('id')) : null;
+    const dados = { codigo: d.codigo, descricao: d.descricao, tipo: d.tipo, valor, minimoPedido: d.minimoPedido ?? 0, usoMaximo: d.usoMaximo, usoPorCliente: d.usoPorCliente, primeiraCompra: d.primeiraCompra === 'on', fim: d.fim ?? null };
     try {
-      await db.cupom.create({ data: { codigo: d.codigo, descricao: d.descricao, tipo: d.tipo, valor, minimoPedido: d.minimoPedido ?? 0, usoMaximo: d.usoMaximo, usoPorCliente: d.usoPorCliente, primeiraCompra: d.primeiraCompra === 'on', fim: d.fim } });
+      if (id) await db.cupom.update({ where: { id }, data: dados });
+      else await db.cupom.create({ data: dados });
     } catch (e) {
       if (e && typeof e === 'object' && 'code' in e && e.code === 'P2002') throw new ErroNegocio('Já existe um cupom com este código.');
       throw e;
     }
-    await auditar('cupom.criado', { usuarioId: u.id, detalhes: { codigo: d.codigo } });
+    await auditar(id ? 'cupom.editado' : 'cupom.criado', { usuarioId: u.id, detalhes: { codigo: d.codigo } });
     refresh();
-  }, 'Cupom criado');
+  }, 'Cupom salvo');
 }
 
 export async function salvarPromocao(_: unknown, form: FormData) {
@@ -281,25 +285,75 @@ export async function salvarPromocao(_: unknown, form: FormData) {
     if (d.tipo === 'LEVE_PAGUE' && (!d.leve || !d.pague || d.pague >= d.leve)) throw new ErroNegocio('No "leve X pague Y", Y deve ser menor que X.');
     const categoriaId = d.alvo === 'categoria' ? uuid.parse(d.categoriaId) : null;
     const marcaId = d.alvo === 'marca' ? uuid.parse(d.marcaId) : null;
-    const promo = await db.promocao.create({ data: { nome: d.nome, tipo: d.tipo, percentual: d.percentual, leve: d.leve, pague: d.pague, categoriaId, marcaId, inicio: d.inicio, fim: d.fim } });
-    await auditar('promocao.criada', { usuarioId: u.id, alvo: promo.id });
+    const dados = { nome: d.nome, tipo: d.tipo, percentual: d.tipo === 'PERCENTUAL' ? d.percentual : null, leve: d.tipo === 'LEVE_PAGUE' ? d.leve : null, pague: d.tipo === 'LEVE_PAGUE' ? d.pague : null, categoriaId, marcaId, inicio: d.inicio, fim: d.fim };
+    const id = form.get('id') ? uuid.parse(form.get('id')) : null;
+    const promo = id ? await db.promocao.update({ where: { id }, data: dados }) : await db.promocao.create({ data: dados });
+    await auditar(id ? 'promocao.editada' : 'promocao.criada', { usuarioId: u.id, alvo: promo.id });
+    updateTag('catalogo');
     refresh();
-  }, 'Promoção criada');
+  }, 'Promoção salva. A alteração já vale na loja.');
 }
 
 export async function salvarBanner(_: unknown, form: FormData) {
   const p = z.object({
     titulo: z.string().trim().min(3).max(80), subtitulo: z.string().max(160).optional(), textoBotao: z.string().trim().min(2).max(30),
     link: z.string().trim().regex(/^\/[\w\-/?=&%.]*$/, 'Use um caminho interno, ex.: /categoria/vitaminas'),
-    corDe: z.string().regex(/^#[0-9a-f]{6}$/i), corPara: z.string().regex(/^#[0-9a-f]{6}$/i), icone: z.string().min(1).max(8), ordem: z.coerce.number().int().min(0).max(99),
+    corDe: z.string().regex(/^#[0-9a-f]{6}$/i).optional(), corPara: z.string().regex(/^#[0-9a-f]{6}$/i).optional(), ordem: z.coerce.number().int().min(0).max(99),
+    svg: z.string().max(400_000).optional(),
   }).safeParse(campos(form));
   if (!p.success) return errosZod(p.error);
   return executar(async () => {
     const u = await exigirPermissao('marketing');
-    await db.banner.create({ data: { ...p.data, subtitulo: p.data.subtitulo || null } });
-    await auditar('banner.criado', { usuarioId: u.id });
+    const { dimensoes, limparSvg } = await import('@/server/design/imagem');
+    const id = form.get('id') ? uuid.parse(form.get('id')) : null;
+    const d = p.data;
+    const arte: { imagem?: Uint8Array<ArrayBuffer> | null; imagemMime?: string | null; svg?: string | null } = {};
+    const arquivo = form.get('imagem');
+    if (arquivo instanceof File && arquivo.size > 0) {
+      if (arquivo.size > 3 * 1024 * 1024) throw new ErroNegocio('A imagem passa de 3 MB. Exporte em JPG ou WEBP com qualidade 85%.');
+      const bytes = Buffer.from(await arquivo.arrayBuffer());
+      const ass = ASSINATURA_IMG[arquivo.type];
+      if (!ass || !ass.every((b, i) => bytes[i] === b)) throw new ErroNegocio('Envie JPG, PNG ou WEBP.');
+      const dim = dimensoes(bytes);
+      if (!dim) throw new ErroNegocio('Não consegui ler o tamanho da imagem.');
+      const prop = dim.largura / dim.altura;
+      if (dim.largura < 1200 || prop < 3 || prop > 3.4) throw new ErroNegocio(`A imagem tem ${dim.largura} × ${dim.altura} px. O padrão do site é 1600 × 500 px (proporção 3,2:1, mínimo 1200 px de largura).`);
+      Object.assign(arte, { imagem: new Uint8Array(bytes), imagemMime: arquivo.type, svg: null });
+    } else if (d.svg) {
+      Object.assign(arte, { svg: limparSvg(d.svg), imagem: null, imagemMime: null });
+    }
+    const dados = { titulo: d.titulo, subtitulo: d.subtitulo || null, textoBotao: d.textoBotao, link: d.link, ordem: d.ordem, ...(d.corDe ? { corDe: d.corDe } : {}), ...(d.corPara ? { corPara: d.corPara } : {}), ...arte };
+    if (id) await db.banner.update({ where: { id }, data: dados });
+    else await db.banner.create({ data: { ...dados, icone: '' } });
+    await auditar(id ? 'banner.editado' : 'banner.criado', { usuarioId: u.id, detalhes: { titulo: d.titulo, arte: arte.imagem ? 'imagem' : arte.svg ? 'ia' : 'padrao' } });
     refresh();
-  }, 'Banner publicado');
+  }, 'Banner salvo');
+}
+
+export async function gerarBannerIA(briefing: unknown) {
+  return executar(async () => {
+    const u = await exigirPermissao('marketing');
+    const { limitarTaxa } = await import('@/server/auth');
+    limitarTaxa(`design:${u.id}`, 12, 60 * 60_000);
+    const b = z.object({
+      titulo: z.string().trim().min(3).max(80), subtitulo: z.string().max(160).optional(), cta: z.string().trim().min(2).max(30),
+      oferta: z.string().max(60).optional(), tema: z.string().max(200).optional(), estilo: z.string().max(200).optional(),
+      ajustes: z.string().max(400).optional(), svgAnterior: z.string().max(400_000).optional(),
+    }).parse(briefing);
+    const { criarBanner } = await import('@/server/design/agente');
+    const r = await criarBanner(b);
+    await auditar('banner.ia_gerado', { usuarioId: u.id, detalhes: { titulo: b.titulo } });
+    return r;
+  });
+}
+
+export async function excluirBanner(id: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('marketing');
+    await db.banner.delete({ where: { id: uuid.parse(id) } });
+    await auditar('banner.excluido', { usuarioId: u.id, alvo: id });
+    refresh();
+  });
 }
 
 export async function alternarMarketing(tipo: 'cupom' | 'promocao' | 'banner', id: string) {
@@ -314,11 +368,12 @@ export async function alternarMarketing(tipo: 'cupom' | 'promocao' | 'banner', i
   });
 }
 
-export async function moderarAvaliacao(id: string, aprovar: boolean) {
+export async function moderarAvaliacao(id: string, status: 'APROVADA' | 'GUARDADA' | 'REJEITADA' | 'PENDENTE') {
   return executar(async () => {
     const u = await exigirPermissao('avaliacoes');
-    await db.avaliacao.update({ where: { id: uuid.parse(id) }, data: { status: aprovar ? 'APROVADA' : 'REJEITADA' } });
-    await auditar('avaliacao.moderada', { usuarioId: u.id, alvo: id, detalhes: { aprovar } });
+    const st = z.enum(['APROVADA', 'GUARDADA', 'REJEITADA', 'PENDENTE']).parse(status);
+    await db.avaliacao.update({ where: { id: uuid.parse(id) }, data: { status: st } });
+    await auditar('avaliacao.moderada', { usuarioId: u.id, alvo: id, detalhes: { status: st } });
     refresh();
   });
 }
@@ -448,7 +503,6 @@ export async function salvarLoja(_: unknown, form: FormData) {
 
 // ─────────────── Fotos de produto ───────────────
 
-const ASSINATURA_IMG: Record<string, number[]> = { 'image/jpeg': [0xff, 0xd8, 0xff], 'image/png': [0x89, 0x50, 0x4e, 0x47], 'image/webp': [0x52, 0x49, 0x46, 0x46] };
 
 export async function enviarFotosProduto(_: unknown, form: FormData) {
   return executar(async () => {
@@ -515,4 +569,57 @@ export async function removerChaveAnthropic() {
     await removerSegredo('ANTHROPIC_API_KEY', u.id);
     refresh();
   }, 'Chave removida. As dúvidas voltam a ir direto para o farmacêutico.');
+}
+
+// ─────────────── Permissões e configurações (painel do dono) ───────────────
+
+export async function salvarPermissoesAcao(matriz: Record<string, string[]>) {
+  return executar(async () => {
+    const u = await exigirPermissao('configuracoes');
+    const { salvarMatriz } = await import('@/server/permissoes');
+    await salvarMatriz(z.record(z.string(), z.array(z.string())).parse(matriz), u.id);
+    refresh();
+  }, 'Permissões salvas. Valem a partir do próximo clique de cada pessoa.');
+}
+
+export async function restaurarPermissoesAcao() {
+  return executar(async () => {
+    const u = await exigirPermissao('configuracoes');
+    const { restaurarPadrao } = await import('@/server/permissoes');
+    await restaurarPadrao(u.id);
+    refresh();
+  }, 'Permissões padrão restauradas.');
+}
+
+const centavos = (v: FormDataEntryValue | null) => Math.round(Number(String(v ?? '0').replace(/\./g, '').replace(',', '.')) * 100) || 0;
+
+export async function salvarConfiguracaoAcao(grupo: string, _: unknown, form: FormData) {
+  return executar(async () => {
+    const u = await exigirPermissao(grupo === 'entrega' ? 'lojas' : 'configuracoes');
+    const { salvarConfiguracao, SCHEMAS } = await import('@/server/configuracoes');
+    if (!(grupo in SCHEMAS)) throw new ErroNegocio('Grupo de configuração inválido.');
+    const c = campos(form);
+    const bool = (k: string) => form.get(k) === 'on';
+    const valor: unknown = ({
+      contato: { whatsapp: c.whatsapp ?? '', telefone: c.telefone ?? '', email: c.email ?? '', afe: c.afe ?? '', rtNome: c.rtNome ?? '', rtCrf: c.rtCrf ?? '' },
+      assistente: { nome: c.nome, limiteDiario: c.limiteDiario, ativo: bool('ativo') },
+      entrega: {
+        ativa: bool('ativa'), somenteBairrosCadastrados: bool('somenteBairrosCadastrados'), retiradaAtiva: bool('retiradaAtiva'),
+        taxaPadrao: centavos(form.get('taxaPadrao')), pedidoMinimo: centavos(form.get('pedidoMinimo')), freteGratisAcima: centavos(form.get('freteGratisAcima')),
+        taxaMaxima: centavos(form.get('taxaMaxima')), prazoPadraoMinutos: c.prazoPadraoMinutos,
+      },
+      impressao: { larguraMm: Number(c.larguraMm), automatica: bool('automatica'), cabecalho: c.cabecalho ?? '', rodape: c.rodape ?? '', mostrarCpf: bool('mostrarCpf'), vias: c.vias },
+      fiscal: {
+        ambiente: c.ambiente, regime: c.regime, inscricaoEstadual: c.inscricaoEstadual ?? '', inscricaoMunicipal: c.inscricaoMunicipal ?? '', serieNfce: c.serieNfce,
+        proximoNumeroNfce: c.proximoNumeroNfce, cscId: c.cscId ?? '', provedor: c.provedor, emitirAutomaticamente: bool('emitirAutomaticamente'),
+      },
+    } as Record<string, unknown>)[grupo];
+    try {
+      await salvarConfiguracao(grupo as never, valor, u.id);
+    } catch (e) {
+      if (e instanceof z.ZodError) throw new ErroNegocio(e.issues.map((i) => i.message).join(' · '));
+      throw e;
+    }
+    refresh();
+  }, 'Configuração salva');
 }

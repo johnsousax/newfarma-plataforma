@@ -7,7 +7,8 @@ import { menuCategorias } from '@/components/loja/Cabecalho';
 import { CarrosselBanners } from '@/components/loja/CarrosselBanners';
 import { Prateleira } from '@/components/loja/CardProduto';
 import { Esqueleto } from '@/components/ui';
-import { FARMACIA, linkWhatsApp } from '@/lib/farmacia';
+import { FARMACIA } from '@/lib/farmacia';
+import { linkWhatsLoja } from '@/server/configuracoes';
 import { Icone, IconeProduto, type NomeIcone } from '@/components/icones';
 
 async function Banners() {
@@ -16,8 +17,9 @@ async function Banners() {
   const banners = await db.banner.findMany({
     where: { ativo: true, AND: [{ OR: [{ inicio: null }, { inicio: { lte: agora } }] }, { OR: [{ fim: null }, { fim: { gte: agora } }] }] },
     orderBy: { ordem: 'asc' },
+    select: { id: true, titulo: true, subtitulo: true, textoBotao: true, link: true, corDe: true, corPara: true, icone: true, imagemMime: true, svg: true },
   });
-  return <CarrosselBanners banners={banners} />;
+  return <CarrosselBanners banners={banners.map(({ svg, imagemMime, ...b }) => ({ ...b, arte: imagemMime || svg ? `/banners/${b.id}?v=${(svg?.length ?? 0) + b.titulo.length}` : null }))} />;
 }
 
 async function Categorias() {
@@ -83,8 +85,13 @@ function EsqueletoPrateleira() {
   );
 }
 
+async function BotaoWhatsHero() {
+  await connection();
+  const wa = await linkWhatsLoja('Olá! Vim pelo site e tenho uma dúvida.');
+  return wa ? <a href={wa} target="_blank" rel="noopener noreferrer" className="rounded-full border-2 border-marca-600 px-6 py-3 font-extrabold hover:bg-marca-600 hover:text-white inline-flex items-center gap-2"><Icone nome="whatsapp" className="h-5 w-5" />WhatsApp</a> : null;
+}
+
 function Hero() {
-  const wa = linkWhatsApp('Olá! Vim pelo site e tenho uma dúvida.');
   return (
     <section className="relative overflow-hidden bg-amarelo-400 text-marca-600">
       <div className="container-loja grid items-center gap-8 py-12 md:grid-cols-[1.1fr_.9fr] md:py-16">
@@ -97,7 +104,7 @@ function Hero() {
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/ofertas" className="rounded-full bg-oferta-600 px-6 py-3.5 font-extrabold text-white shadow-lg hover:bg-oferta-700">Ver produtos e preços</Link>
             <Link href="/assistente" className="rounded-full bg-white px-6 py-3.5 font-extrabold text-marca-600 shadow hover:bg-amarelo-50 inline-flex items-center gap-2"><Icone nome="assistente" className="h-5 w-5" />Tirar dúvida sobre um remédio</Link>
-            {wa && <a href={wa} target="_blank" rel="noopener noreferrer" className="rounded-full border-2 border-marca-600 px-6 py-3 font-extrabold hover:bg-marca-600 hover:text-white inline-flex items-center gap-2"><Icone nome="whatsapp" className="h-5 w-5" />WhatsApp</a>}
+            <Suspense><BotaoWhatsHero /></Suspense>
           </div>
         </div>
         <ul className="grid grid-cols-2 gap-3 text-sm">

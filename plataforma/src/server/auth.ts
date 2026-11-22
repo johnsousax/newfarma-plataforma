@@ -7,7 +7,8 @@ import { config } from './config';
 import { hashSenha, verificarSenha, sha256, tokenAleatorio } from './cripto';
 import { ErroNegocio } from './erros';
 import { auditar } from './auditoria';
-import { pode, EQUIPE, type Permissao } from '@/lib/dominio';
+import { EQUIPE, type Permissao } from '@/lib/dominio';
+import { temPermissao } from './permissoes';
 import type { Papel } from '@/generated/prisma/enums';
 
 export const COOKIE_SESSAO = 'fx_sessao';
@@ -99,7 +100,7 @@ export async function exigirLogin(voltar = '/conta') {
 export async function exigirPermissao(p: Permissao) {
   const u = await usuarioAtual();
   if (!u) redirect('/entrar?voltar=/admin');
-  if (!pode(u.papel, p)) throw new ErroNegocio('Você não tem permissão para esta operação.', 403);
+  if (!(await temPermissao(u.papel, p))) throw new ErroNegocio('Você não tem permissão para esta operação.', 403);
   return u;
 }
 
@@ -117,7 +118,7 @@ export async function paginaAdmin(p: Permissao) {
   const u = await usuarioAtual();
   if (!u) redirect('/entrar?voltar=/admin');
   if (!EQUIPE.includes(u.papel)) redirect('/');
-  if (!pode(u.papel, p)) redirect('/admin?negado=1');
+  if (!(await temPermissao(u.papel, p))) redirect('/admin?negado=1');
   return u;
 }
 

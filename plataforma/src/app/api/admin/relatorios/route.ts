@@ -2,7 +2,7 @@ import { connection } from 'next/server';
 import { db } from '@/server/db';
 import { usuarioAtual, lojaDoUsuario } from '@/server/auth';
 import { auditar } from '@/server/auditoria';
-import { pode } from '@/lib/dominio';
+import { temPermissao } from '@/server/permissoes';
 
 const csv = (v: unknown) => { const s = String(v ?? ''); return /[";\n]/.test(s) || /^[=+\-@]/.test(s) ? `"${s.replace(/^([=+\-@])/, "'$1").replace(/"/g, '""')}"` : s; };
 const reais = (c: number) => (c / 100).toFixed(2).replace('.', ',');
@@ -11,7 +11,7 @@ const reais = (c: number) => (c / 100).toFixed(2).replace('.', ',');
 export async function GET(req: Request) {
   await connection();
   const u = await usuarioAtual();
-  if (!u || !pode(u.papel, 'relatorios')) return new Response('Acesso negado', { status: 403 });
+  if (!u || !(await temPermissao(u.papel, 'relatorios'))) return new Response('Acesso negado', { status: 403 });
   const p = new URL(req.url).searchParams;
   const de = new Date(`${p.get('de') ?? '2000-01-01'}T00:00:00-03:00`);
   const ate = new Date(`${p.get('ate') ?? '2100-01-01'}T23:59:59-03:00`);

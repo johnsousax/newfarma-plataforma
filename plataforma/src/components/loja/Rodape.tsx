@@ -1,10 +1,38 @@
 import Link from 'next/link';
-import { FARMACIA, linkWhatsApp, telefoneFormatado } from '@/lib/farmacia';
+import { Suspense } from 'react';
+import { connection } from 'next/server';
+import { FARMACIA, telefoneFormatado } from '@/lib/farmacia';
+import { configuracoes, linkWhatsLoja } from '@/server/configuracoes';
 import { LogoCompleto } from '@/components/Logo';
 import { Icone } from '@/components/icones';
 
+async function Contato() {
+  await connection();
+  const { contato } = await configuracoes();
+  const wa = await linkWhatsLoja('Olá! Vim pelo site.');
+  return (
+    <ul className="space-y-2 text-marca-100">
+      {wa && <li><a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-white"><Icone nome="whatsapp" />WhatsApp {telefoneFormatado(contato.whatsapp)}</a></li>}
+      {contato.telefone && <li className="flex items-center gap-2"><Icone nome="telefone" />{contato.telefone}</li>}
+      {contato.email && <li className="flex items-center gap-2"><Icone nome="email" />{contato.email}</li>}
+      <li>Farmacêutico responsável para orientar você</li>
+    </ul>
+  );
+}
+
+async function Legal() {
+  await connection();
+  const { contato } = await configuracoes();
+  return (
+    <p>
+      <strong className="text-white">{FARMACIA.razaoSocial} ({FARMACIA.nome})</strong> · CNPJ {FARMACIA.cnpj}
+      {contato.afe && <> · AFE/ANVISA {contato.afe}</>}
+      {contato.rtNome && <> · Farmacêutico(a) responsável: {contato.rtNome}{contato.rtCrf && ` — ${contato.rtCrf}`}</>}
+    </p>
+  );
+}
+
 export function Rodape() {
-  const wa = linkWhatsApp('Olá! Vim pelo site.');
   return (
     <footer className="mt-16 text-sm">
       <div className="bg-marca-600 text-marca-50">
@@ -24,12 +52,7 @@ export function Rodape() {
           </div>
           <div>
             <h3 className="mb-3 font-bold text-white">Atendimento</h3>
-            <ul className="space-y-2 text-marca-100">
-              {wa && <li><a href={wa} target="_blank" rel="noopener noreferrer" className="hover:text-white inline-flex items-center gap-2"><Icone nome="whatsapp" />WhatsApp {telefoneFormatado(FARMACIA.whatsapp)}</a></li>}
-              {FARMACIA.sac && <li className="flex items-center gap-2"><Icone nome="telefone" />{FARMACIA.sac}</li>}
-              {FARMACIA.email && <li className="flex items-center gap-2"><Icone nome="email" />{FARMACIA.email}</li>}
-              <li>Farmacêutico responsável para orientar você</li>
-            </ul>
+            <Suspense><Contato /></Suspense>
           </div>
           <div>
             <h3 className="mb-3 font-bold text-white">Pagamento seguro</h3>
@@ -44,11 +67,7 @@ export function Rodape() {
       </div>
       <div className="bg-marca-800">
         <div className="container-loja space-y-2 py-6 text-xs leading-relaxed text-marca-200">
-          <p>
-            <strong className="text-white">{FARMACIA.razaoSocial} ({FARMACIA.nome})</strong> · CNPJ {FARMACIA.cnpj}
-            {FARMACIA.afe && <> · AFE/ANVISA {FARMACIA.afe}</>}
-            {FARMACIA.rtNome && <> · Farmacêutico(a) responsável: {FARMACIA.rtNome}{FARMACIA.rtCrf && ` — ${FARMACIA.rtCrf}`}</>}
-          </p>
+          <Suspense><Legal /></Suspense>
           <p>Remédios que não exigem receita podem ser comprados pelo site. Itens que exigem receita passam pela validação do farmacêutico. Medicamentos de controle especial (Portaria 344/98) só na loja, com a receita original (RDC 44/2009).</p>
           <p className="font-semibold uppercase tracking-wide text-amarelo-300">Imagens ilustrativas. Se persistirem os sintomas, o médico deverá ser consultado.</p>
         </div>

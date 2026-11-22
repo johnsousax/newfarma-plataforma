@@ -15,7 +15,8 @@ import { FormAvaliacao } from '@/components/loja/FormAvaliacao';
 import { Prateleira } from '@/components/loja/CardProduto';
 import { REGRAS, TIPO_MEDICAMENTO } from '@/lib/dominio';
 import { brl, data, percentual } from '@/lib/formato';
-import { FARMACIA, linkWhatsApp, parcelasPara } from '@/lib/farmacia';
+import { FARMACIA, parcelasPara } from '@/lib/farmacia';
+import { linkWhatsLoja } from '@/server/configuracoes';
 import { Icone } from '@/components/icones';
 
 export async function generateMetadata({ params }: PageProps<'/produto/[slug]'>) {
@@ -40,6 +41,7 @@ async function Conteudo({ params }: { params: PageProps<'/produto/[slug]'>['para
     u ? db.carrinho.findUnique({ where: { usuarioId: u.id }, select: { cep: true } }) : null,
   ]);
   const regra = REGRAS[p.classificacao];
+  const waProduto = await linkWhatsLoja(`Olá! Tenho uma dúvida sobre ${p.nome}.`);
   const parcelas = parcelasPara(p.oferta.preco);
   const usoContinuo = p.tags.includes('uso continuo') || p.categoria.nome === 'Vitaminas';
   const maisBarato = equiv.filter((e) => e.disponivel > 0).sort((a, b) => a.oferta.preco - b.oferta.preco)[0];
@@ -164,7 +166,7 @@ async function Conteudo({ params }: { params: PageProps<'/produto/[slug]'>['para
             <p className="text-slate-600">Fale com nosso farmacêutico{FARMACIA.rtNome ? ` (${FARMACIA.rtNome}${FARMACIA.rtCrf ? `, ${FARMACIA.rtCrf}` : ''})` : ''}. O assistente virtual explica para que o medicamento serve conforme a bula, mas não indica tratamento.</p>
             <div className="flex flex-wrap gap-2">
               <Link href="/assistente" className="rounded-xl bg-marca-600 px-3 py-2 font-semibold text-white inline-flex items-center gap-1.5"><Icone nome="assistente" />Assistente</Link>
-              {linkWhatsApp(`Olá! Tenho uma dúvida sobre ${p.nome}.`) && <a href={linkWhatsApp(`Olá! Tenho uma dúvida sobre ${p.nome}.`)!} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-slate-300 px-3 py-2 font-semibold inline-flex items-center gap-1.5"><Icone nome="whatsapp" />WhatsApp</a>}
+              {waProduto && <a href={waProduto} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-slate-300 px-3 py-2 font-semibold inline-flex items-center gap-1.5"><Icone nome="whatsapp" />WhatsApp</a>}
             </div>
           </div>
         </aside>

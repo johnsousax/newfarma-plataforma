@@ -4,7 +4,8 @@ import { cacheLife, cacheTag } from 'next/cache';
 import { db } from '@/server/db';
 import { usuarioAtual } from '@/server/auth';
 import { carrinhoAtual } from '@/server/carrinho';
-import { FARMACIA, linkWhatsApp } from '@/lib/farmacia';
+import { FARMACIA } from '@/lib/farmacia';
+import { linkWhatsLoja } from '@/server/configuracoes';
 import { EQUIPE } from '@/lib/dominio';
 import { CaixaBusca } from './CaixaBusca';
 import { LogoCompleto, SeloMarca } from '@/components/Logo';
@@ -52,9 +53,14 @@ async function AreaUsuario() {
   );
 }
 
+async function LinkWhatsTopo() {
+  const wa = await linkWhatsLoja('Olá! Vim pelo site e tenho uma dúvida.');
+  return wa ? <a href={wa} className="inline-flex items-center gap-1.5 hover:underline" target="_blank" rel="noopener noreferrer"><Icone nome="whatsapp" className="h-3.5 w-3.5" />WhatsApp</a> : null;
+}
+
 async function MenuPrincipal() {
   const cats = await menuCategorias();
-  return <MenuLoja categorias={cats} whatsapp={linkWhatsApp('Olá! Vim pelo site e tenho uma dúvida.')} />;
+  return <MenuLoja categorias={cats} whatsapp={await linkWhatsLoja('Olá! Vim pelo site e tenho uma dúvida.')} />;
 }
 
 export function Cabecalho() {
@@ -71,7 +77,7 @@ export function Cabecalho() {
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1"><span className="inline-flex items-center gap-1.5"><Icone nome="etiqueta" className="h-3.5 w-3.5" />Preço popular</span><span className="inline-flex items-center gap-1.5"><Icone nome="pix" className="h-3.5 w-3.5" />Pix na hora</span><span className="inline-flex items-center gap-1.5"><Icone nome="entrega" className="h-3.5 w-3.5" />Entrega no bairro ou retire no balcão</span></p>
           <div className="hidden gap-4 sm:flex">
             <Link href="/lojas" className="inline-flex items-center gap-1.5 hover:underline"><Icone nome="local" className="h-3.5 w-3.5" />Nossa loja</Link>
-            {linkWhatsApp('Olá! Vim pelo site e tenho uma dúvida.') && <a href={linkWhatsApp('Olá! Vim pelo site e tenho uma dúvida.')!} className="inline-flex items-center gap-1.5 hover:underline" target="_blank" rel="noopener noreferrer"><Icone nome="whatsapp" className="h-3.5 w-3.5" />WhatsApp</a>}
+            <Suspense><LinkWhatsTopo /></Suspense>
           </div>
         </div>
       </div>

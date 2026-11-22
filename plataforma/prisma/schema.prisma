@@ -84,6 +84,8 @@ enum StatusReceita {
 enum StatusModeracao {
   PENDENTE
   APROVADA
+  /// Guardada pelo dono: fica no painel, não aparece no site
+  GUARDADA
   REJEITADA
 }
 
@@ -377,6 +379,10 @@ model Banner {
   corDe      String    @default("#0f766e")
   corPara    String    @default("#14b8a6")
   icone      String    @default("💊")
+  /// Arte pronta: imagem enviada (1600x500) ou SVG criado pelo agente de design
+  imagem     Bytes?
+  imagemMime String?
+  svg        String?
   ordem      Int       @default(0)
   ativo      Boolean   @default(true)
   inicio     DateTime?

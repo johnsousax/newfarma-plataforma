@@ -7,6 +7,7 @@ import { MenuAdmin, type ItemMenu } from '@/components/admin/MenuAdmin';
 import { Icone } from '@/components/icones';
 import { sairAcao } from '@/app/acoes/conta';
 import { pode, PAPEL, type Permissao } from '@/lib/dominio';
+import { matrizPermissoes } from '@/server/permissoes';
 import { FARMACIA } from '@/lib/farmacia';
 
 export const metadata = { title: { default: 'Painel', template: '%s · Painel' }, robots: { index: false } };
@@ -27,7 +28,9 @@ const ITENS: (Omit<ItemMenu, 'contador'> & { perm: Permissao })[] = [
   { href: '/admin/relatorios', icone: 'relatorios', rotulo: 'Relatórios', grupo: 'Gestão', perm: 'relatorios' },
   { href: '/admin/anvisa', icone: 'anvisa', rotulo: 'ANVISA / SNGPC', grupo: 'Gestão', perm: 'anvisa' },
   { href: '/admin/equipe', icone: 'equipe', rotulo: 'Equipe', grupo: 'Administração', perm: 'equipe' },
-  { href: '/admin/lojas', icone: 'lojas', rotulo: 'Lojas', grupo: 'Administração', perm: 'lojas' },
+  { href: '/admin/configuracoes', icone: 'configuracoes', rotulo: 'Configurações', grupo: 'Administração', perm: 'configuracoes' },
+  { href: '/admin/permissoes', icone: 'permissoes', rotulo: 'Cargos e permissões', grupo: 'Administração', perm: 'configuracoes' },
+  { href: '/admin/lojas', icone: 'lojas', rotulo: 'Loja', grupo: 'Administração', perm: 'lojas' },
   { href: '/admin/integracoes', icone: 'integracoes', rotulo: 'Integrações', grupo: 'Administração', perm: 'lojas' },
   { href: '/admin/auditoria', icone: 'auditoria', rotulo: 'Auditoria', grupo: 'Administração', perm: 'auditoria' },
 ];
@@ -43,7 +46,8 @@ async function Lateral() {
     db.conversa.count({ where: { status: 'AGUARDANDO_FARMACEUTICO' } }),
   ]);
   const contadores: Record<string, number> = { '/admin/atendimento': atendimento, '/admin/receitas': receitas, '/admin/pedidos': pagos, '/admin/avaliacoes': avaliacoes };
-  const itens = ITENS.filter((i) => pode(u.papel, i.perm)).map(({ perm: _p, ...i }) => ({ ...i, contador: contadores[i.href] }));
+  const matriz = await matrizPermissoes();
+  const itens = ITENS.filter((i) => pode(u.papel, i.perm, matriz)).map(({ perm: _p, ...i }) => ({ ...i, contador: contadores[i.href] }));
   return (
     <>
       <MenuAdmin itens={itens} />

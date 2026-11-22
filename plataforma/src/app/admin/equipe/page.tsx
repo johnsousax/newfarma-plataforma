@@ -5,7 +5,8 @@ import { paginaAdmin } from '@/server/auth';
 import { Badge, Esqueleto, TituloPagina } from '@/components/ui';
 import { BotaoAcao, FormAcao } from '@/components/admin/Acoes';
 import { salvarMembroEquipe, alternarAtivoUsuario } from '@/app/acoes/admin';
-import { PAPEL, PERMISSOES, EQUIPE } from '@/lib/dominio';
+import Link from 'next/link';
+import { PAPEL, EQUIPE } from '@/lib/dominio';
 import { data } from '@/lib/formato';
 
 export const metadata = { title: 'Equipe' };
@@ -60,13 +61,7 @@ async function Conteudo() {
         <Selects lojas={lojas} />
         <label><span className="rotulo">CRF (farmacêutico)</span><input name="crf" placeholder="CRF-SP 12345" className="campo" /></label>
       </FormAcao>
-      <section className="cartao overflow-x-auto p-5">
-        <h2 className="mb-3 font-semibold">Matriz de permissões</h2>
-        <table className="tabela text-xs">
-          <thead><tr><th>Área</th>{EQUIPE.map((p) => <th key={p} className="text-center">{PAPEL[p]}</th>)}</tr></thead>
-          <tbody>{Object.entries(PERMISSOES).map(([k, ps]) => <tr key={k}><td className="font-medium">{k}</td>{EQUIPE.map((p) => <td key={p} className="text-center">{(ps as readonly string[]).includes(p) ? '✓' : ''}</td>)}</tr>)}</tbody>
-        </table>
-      </section>
+      <p className="text-sm text-slate-600">O que cada cargo pode fazer é definido em <Link href="/admin/permissoes" className="link">Cargos e permissões</Link>.</p>
     </div>
   );
 }

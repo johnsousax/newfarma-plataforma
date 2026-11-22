@@ -8,6 +8,7 @@ import { alertas } from '@/server/estoque';
 import { GraficoColunas, BarrasHorizontais, Kpi } from '@/components/admin/Graficos';
 import { Aviso, Badge, Esqueleto, TituloPagina } from '@/components/ui';
 import { STATUS_PEDIDO, pode } from '@/lib/dominio';
+import { matrizPermissoes } from '@/server/permissoes';
 import { brl, dataHora } from '@/lib/formato';
 
 const brlCurto = (c: number) => (c >= 100_000_00 ? `R$${(c / 100_000_00).toFixed(1)}M` : c >= 100_000 ? `R$${(c / 100_000).toFixed(0)}k` : brl(c).replace(',00', ''));
@@ -20,10 +21,11 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/admin'>['s
   const dias = [7, 30, 90].includes(Number(sp.dias)) ? Number(sp.dias) : 30;
   const loja = lojaDoUsuario(u);
   const per = periodoDe(dias, loja);
-  const verVendas = pode(u.papel, 'relatorios');
+  const matriz = await matrizPermissoes();
+  const verVendas = pode(u.papel, 'relatorios', matriz);
   const [k, serie, top, canais, status, al, receitas, recentes] = await Promise.all([
     kpis(per), vendasPorDia(per), topProdutos(per, 8), vendasPor('canal', per), pedidosPorStatus(loja),
-    pode(u.papel, 'estoque') ? alertas(loja ?? undefined) : Promise.resolve([]),
+    pode(u.papel, 'estoque', matriz) ? alertas(loja ?? undefined) : Promise.resolve([]),
     db.receita.count({ where: { status: 'PENDENTE' } }),
     db.pedido.findMany({ where: loja ? { lojaId: loja } : {}, orderBy: { criadoEm: 'desc' }, take: 8, include: { loja: { select: { nome: true } } } }),
   ]);
@@ -50,7 +52,7 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/admin'>['s
 
       {(receitas > 0 || contAlertas.RUPTURA + contAlertas.VENCIDO > 0) && (
         <div className="grid gap-3 md:grid-cols-2">
-          {receitas > 0 && pode(u.papel, 'verReceitas') && <Link href="/admin/receitas"><Aviso tipo="alerta"><strong>{receitas} receita(s)</strong> aguardando validação farmacêutica →</Aviso></Link>}
+          {receitas > 0 && pode(u.papel, 'verReceitas', matriz) && <Link href="/admin/receitas"><Aviso tipo="alerta"><strong>{receitas} receita(s)</strong> aguardando validação farmacêutica →</Aviso></Link>}
           {contAlertas.RUPTURA + contAlertas.VENCIDO > 0 && <Link href="/admin/estoque"><Aviso tipo="erro"><strong>{contAlertas.RUPTURA}</strong> rupturas e <strong>{contAlertas.VENCIDO}</strong> lotes vencidos · {contAlertas.REPOSICAO} itens abaixo do mínimo →</Aviso></Link>}
         </div>
       )}

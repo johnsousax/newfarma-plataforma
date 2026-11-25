@@ -8,7 +8,7 @@ import { registrarPresencial } from '../pagamentos';
 import { calcularOferta, descontoLevePague, promocoesAtivas } from '../precos';
 import { indiceCpf } from '../cripto';
 import { config } from '../config';
-import { REGRAS, nivelFidelidade } from '@/lib/dominio';
+import { REGRAS, nivelFidelidade, atuaComoFarmaceutico } from '@/lib/dominio';
 import type { UsuarioSessao } from '../auth';
 import type { MetodoPagamento } from '@/generated/prisma/enums';
 
@@ -74,10 +74,19 @@ export async function caixaAberto(operadorId: string) {
   return db.caixaSessao.findFirst({ where: { operadorId, status: 'ABERTO' }, include: { movimentos: { orderBy: { criadoEm: 'desc' } }, loja: true } });
 }
 
+/** Loja em que o usuário opera o caixa. O dono (Administrador) sem loja fixa usa a loja principal. */
+export async function lojaDoCaixa(u: UsuarioSessao) {
+  if (u.lojaId) return u.lojaId;
+  if (u.papel !== 'ADMIN') return null;
+  const l = await db.loja.findFirst({ where: { ativa: true, centroDistribuicao: false }, orderBy: { criadoEm: 'asc' }, select: { id: true } });
+  return l?.id ?? null;
+}
+
 export async function abrirCaixa(u: UsuarioSessao, valorAbertura: number) {
-  if (!u.lojaId) throw new ErroNegocio('Seu usuário não está vinculado a uma loja.');
+  const lojaId = await lojaDoCaixa(u);
+  if (!lojaId) throw new ErroNegocio(u.papel === 'ADMIN' ? 'Cadastre uma loja ativa primeiro.' : 'Seu usuário não está vinculado a uma loja.');
   if (await caixaAberto(u.id)) throw new ErroNegocio('Você já tem um caixa aberto.');
-  const c = await db.caixaSessao.create({ data: { lojaId: u.lojaId, operadorId: u.id, valorAbertura } });
+  const c = await db.caixaSessao.create({ data: { lojaId, operadorId: u.id, valorAbertura } });
   await auditar('caixa.aberto', { usuarioId: u.id, alvo: c.id, detalhes: { valorAbertura } });
   return c;
 }
@@ -128,7 +137,7 @@ export async function venderBalcao(u: UsuarioSessao, d: { itens: ItemPdv[]; meto
   const precisaReceita = produtos.some((p) => REGRAS[p.classificacao].exigeReceita);
   const precisaEscrit = produtos.some((p) => REGRAS[p.classificacao].escrituracao);
   if (precisaReceita && !d.receitaConferida) throw new ErroNegocio('Há medicamento sob prescrição: confirme que a receita foi conferida.');
-  if (precisaEscrit && u.papel !== 'FARMACEUTICO') throw new ErroNegocio('Antimicrobianos e controlados só podem ser dispensados por farmacêutico (escrituração SNGPC).');
+  if (precisaEscrit && !atuaComoFarmaceutico(u.papel)) throw new ErroNegocio('Antimicrobianos e controlados só podem ser dispensados por farmacêutico (escrituração SNGPC).');
   if (precisaEscrit && !/^(CRM|CRO|CRMV)[-\s]?[A-Z]{2}\s?\d{3,7}$/i.test(d.registroPrescritor ?? '')) throw new ErroNegocio('Informe o CRM do prescritor (ex.: CRM-SP 123456) para a escrituração.');
 
   let cliente: { id: string; nome: string } | null = null;

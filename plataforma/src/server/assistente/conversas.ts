@@ -40,28 +40,34 @@ async function salvar(conversaId: string, autor: AutorMensagem, texto: string, e
   await db.conversa.update({ where: { id: conversaId }, data: { atualizadoEm: new Date() } });
 }
 
-/** Conversa mais recente em aberto (compatibilidade). */
-export async function conversaAtiva(usuarioId: string) {
-  return db.conversa.findFirst({ where: { usuarioId, status: { not: 'ENCERRADA' } }, orderBy: { atualizadoEm: 'desc' } });
+/**
+ * Conversa ÚNICA do cliente com a assistente: uma só, para sempre (não há "nova conversa").
+ * Se o cliente tiver conversas antigas (de antes desta regra), usa a mais recente.
+ */
+export async function conversaUnica(usuarioId: string) {
+  return db.conversa.findFirst({ where: { usuarioId }, orderBy: { atualizadoEm: 'desc' } });
 }
 
-export async function conversaDoUsuario(usuarioId: string, id: string) {
-  return db.conversa.findFirst({ where: { id, usuarioId } });
-}
-
-/** Histórico do cliente, como no ChatGPT: as conversas mais recentes primeiro. */
-export async function listarConversas(usuarioId: string) {
-  const cs = await db.conversa.findMany({ where: { usuarioId }, orderBy: { atualizadoEm: 'desc' }, take: 40, select: { id: true, titulo: true, status: true, atualizadoEm: true, emergencia: true } });
-  return cs.map((c) => ({ ...c, titulo: c.titulo ? decifrar(c.titulo) ?? 'Conversa' : 'Nova conversa' }));
-}
+/** Mantido por compatibilidade: é a mesma conversa única. */
+export const conversaAtiva = conversaUnica;
 
 export async function mensagensDa(conversaId: string) {
   const ms = await db.mensagem.findMany({ where: { conversaId }, orderBy: { criadoEm: 'asc' } });
-  return ms.map((m) => ({
+  return ms.map(mapearMensagem);
+}
+
+/** Histórico completo do cliente (todas as conversas, inclusive antigas), em ordem. */
+export async function historicoDoCliente(usuarioId: string, limite = 200) {
+  const ms = await db.mensagem.findMany({ where: { conversa: { usuarioId } }, orderBy: { criadoEm: 'desc' }, take: limite });
+  return ms.reverse().map(mapearMensagem);
+}
+
+function mapearMensagem(m: { id: string; autor: AutorMensagem; criadoEm: Date; teveImagem: boolean; bloqueadaPorRegra: string | null; textoCifrado: string; dadosCifrados: string | null }) {
+  return {
     id: m.id, autor: m.autor, criadoEm: m.criadoEm, teveImagem: m.teveImagem, bloqueadaPorRegra: m.bloqueadaPorRegra,
     texto: decifrar(m.textoCifrado) ?? '',
     dados: m.dadosCifrados ? (JSON.parse(decifrar(m.dadosCifrados) ?? '{}') as DadosMensagem) : null,
-  }));
+  };
 }
 
 /** Quantas perguntas o cliente ainda pode fazer hoje. */
@@ -102,7 +108,7 @@ function validarImagem(bytes: Buffer, mime: string): Imagem['mime'] {
  * → filtro do catálogo (sugestão por sintoma só mostra produto sem receita).
  * A imagem é processada e descartada: nunca é gravada.
  */
-export async function perguntar(u: UsuarioSessao, entrada: { conversaId?: string | null; texto: string; arquivo: File | null }, ip: string) {
+export async function perguntar(u: UsuarioSessao, entrada: { texto: string; arquivo: File | null }, ip: string) {
   const cfg = await configuracoes();
   if (!cfg.assistente.ativo) throw new ErroNegocio('A assistente está desativada no momento. Fale com a farmácia pelo WhatsApp.');
   const usuario = await db.usuario.findUniqueOrThrow({ where: { id: u.id }, select: { consentimentoAssistenteEm: true } });
@@ -119,10 +125,13 @@ export async function perguntar(u: UsuarioSessao, entrada: { conversaId?: string
     imagem = { mime: validarImagem(bytes, entrada.arquivo.type), base64: bytes.toString('base64') };
   }
 
-  let conversa = entrada.conversaId ? await conversaDoUsuario(u.id, entrada.conversaId) : null;
-  if (!conversa || conversa.status === 'ENCERRADA') {
-    const titulo = (pergunta || (imagem ? 'Foto de medicamento' : 'Conversa')).replace(/\s+/g, ' ').slice(0, 60);
-    conversa = await db.conversa.create({ data: { usuarioId: u.id, titulo: cifrar(titulo) } });
+  // Uma conversa só, para sempre: cria na primeira pergunta e depois sempre continua nela.
+  let conversa = await conversaUnica(u.id);
+  if (!conversa) {
+    conversa = await db.conversa.create({ data: { usuarioId: u.id, titulo: cifrar('Conversa com a assistente') } });
+  } else if (conversa.status === 'ENCERRADA') {
+    // Atendimento do farmacêutico terminou: a mesma conversa volta para a assistente.
+    conversa = await db.conversa.update({ where: { id: conversa.id }, data: { status: 'ASSISTENTE', emergencia: false, motivoEncaminhamento: null } });
   }
   await salvar(conversa.id, 'CLIENTE', pergunta || '(enviou uma foto)', { autorId: u.id, teveImagem: !!imagem });
   if (conversa.status === 'EM_ATENDIMENTO') return conversa.id;
@@ -189,10 +198,6 @@ export async function perguntar(u: UsuarioSessao, entrada: { conversaId?: string
   return conversa.id;
 }
 
-export async function excluirConversa(usuarioId: string, conversaId: string) {
-  await db.conversa.deleteMany({ where: { id: conversaId, usuarioId } });
-}
-
 // ── Equipe (farmacêutico) ──────────────────────────────────────────────────────
 
 export async function filaAtendimento() {
@@ -210,7 +215,7 @@ export async function assumirAtendimento(farm: UsuarioSessao, conversaId: string
 }
 
 export async function responderComoFarmaceutico(farm: UsuarioSessao, conversaId: string, texto: string, ip: string) {
-  if (farm.papel !== 'FARMACEUTICO') throw new ErroNegocio('Somente farmacêuticos respondem no atendimento.', 403);
+  if (farm.papel !== 'FARMACEUTICO' && farm.papel !== 'ADMIN') throw new ErroNegocio('Somente farmacêuticos respondem no atendimento.', 403);
   const t = texto.trim();
   if (t.length < 2) throw new ErroNegocio('Escreva a resposta.');
   const c = await db.conversa.findUnique({ where: { id: conversaId } });

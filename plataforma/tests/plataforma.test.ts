@@ -97,7 +97,7 @@ describe('ANVISA', () => {
     const esc = await db.escrituracao.findMany({ where: { pedidoId: pedido.id } });
     expect(esc).toHaveLength(1);
     expect(esc[0].registroPrescritor).toBe('CRM-SP 123456');
-    expect(esc[0].crfFarmaceutico).toBe('CRF-SP 12345');
+    expect(esc[0].crfFarmaceutico).toBe('CRF-MA 12345');
   });
 
   it('recusa aprovar receita de antimicrobiano vencida (10 dias)', async () => {
@@ -293,5 +293,19 @@ describe('PDV e caixa', () => {
     await abrirCaixa(atendente, 0);
     await expect(venderBalcao(atendente, { itens: [{ produtoId: amox.id, quantidade: 1 }], metodo: 'PIX', receitaConferida: true })).rejects.toThrow(/farmacêutico/);
     await fecharCaixa(atendente, 0);
+  });
+
+  it('dono (Administrador) tem acesso total ao PDV: abre caixa sem loja fixa e vende até antimicrobiano', async () => {
+    const admin = await usuario('admin@farmacia.local');
+    expect(admin.lojaId).toBeNull();
+    const loja = await lojaPaulista();
+    const amox = await produto({ principioAtivo: 'amoxicilina' });
+    await definirEstoque(amox.id, loja.id, 5);
+    await db.caixaSessao.updateMany({ where: { operadorId: admin.id, status: 'ABERTO' }, data: { status: 'FECHADO' } });
+    const caixa = await abrirCaixa(admin, 0);
+    expect(caixa.lojaId).toBe(loja.id);
+    const r = await venderBalcao(admin, { itens: [{ produtoId: amox.id, quantidade: 1 }], metodo: 'PIX', receitaConferida: true, registroPrescritor: 'CRM-MA 123456' });
+    expect(r.total).toBeGreaterThan(0);
+    await fecharCaixa(admin, 0);
   });
 });

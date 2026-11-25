@@ -50,9 +50,9 @@ export function validadeReceita(dataEmissao: Date, temAntimicrobiano: boolean) {
   return { dias, limite, valida: limite >= new Date() };
 }
 
-/** Somente farmacêutico com CRF avalia. Aprovação libera o pedido para pagamento. */
+/** Farmacêutico com CRF ou o dono (Administrador, acesso total) avalia. Aprovação libera o pedido para pagamento. */
 export async function avaliarReceita(farm: UsuarioSessao, receitaId: string, aprovada: boolean, observacao: string, ip: string) {
-  if (farm.papel !== 'FARMACEUTICO' || !farm.crf) throw new ErroNegocio('Somente farmacêutico com CRF cadastrado pode avaliar receitas.', 403);
+  if (!(farm.papel === 'ADMIN' || (farm.papel === 'FARMACEUTICO' && farm.crf))) throw new ErroNegocio('Somente farmacêutico com CRF cadastrado pode avaliar receitas.', 403);
   return db.$transaction(async (tx) => {
     const r = await tx.receita.findUnique({ where: { id: receitaId }, include: { pedido: { include: { itens: true } } } });
     if (!r) throw new ErroNegocio('Receita não encontrada.', 404);
@@ -64,7 +64,7 @@ export async function avaliarReceita(farm: UsuarioSessao, receitaId: string, apr
     await tx.receita.update({ where: { id: r.id }, data: { status: aprovada ? 'APROVADA' : 'REJEITADA', farmaceuticoId: farm.id, observacao: observacao.slice(0, 500) || null, avaliadoEm: new Date() } });
     if (aprovada && r.pedido.status === 'AGUARDANDO_RECEITA') {
       await tx.pedido.update({ where: { id: r.pedidoId }, data: { status: 'AGUARDANDO_PAGAMENTO' } });
-      await tx.pedidoEvento.create({ data: { pedidoId: r.pedidoId, status: 'AGUARDANDO_PAGAMENTO', descricao: `Receita aprovada por ${farm.nome} (${farm.crf}). Conclua o pagamento.`, usuarioId: farm.id } });
+      await tx.pedidoEvento.create({ data: { pedidoId: r.pedidoId, status: 'AGUARDANDO_PAGAMENTO', descricao: `Receita aprovada por ${farm.nome}${farm.crf ? ` (${farm.crf})` : ''}. Conclua o pagamento.`, usuarioId: farm.id } });
     } else if (!aprovada) {
       await tx.pedidoEvento.create({ data: { pedidoId: r.pedidoId, status: 'AGUARDANDO_RECEITA', descricao: `Receita recusada: ${observacao}. Envie uma nova receita ou cancele o pedido.`, usuarioId: farm.id } });
     }

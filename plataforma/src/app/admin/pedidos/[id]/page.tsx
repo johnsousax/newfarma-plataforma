@@ -47,7 +47,7 @@ async function Conteudo({ params }: { params: PageProps<'/admin/pedidos/[id]'>['
           )}
         </div>
       </div>
-      {temPrescricao && p.status === 'PAGO' && u.papel !== 'FARMACEUTICO' && <Aviso tipo="alerta">Este pedido contém medicamento sob prescrição: a separação deve ser feita por um farmacêutico.</Aviso>}
+      {temPrescricao && p.status === 'PAGO' && u.papel !== 'FARMACEUTICO' && u.papel !== 'ADMIN' && <Aviso tipo="alerta">Este pedido contém medicamento sob prescrição: a separação deve ser feita por um farmacêutico.</Aviso>}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-6">

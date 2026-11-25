@@ -161,7 +161,7 @@ export async function avancarStatus(operador: UsuarioSessao, pedidoId: string, n
     }
     const temPrescricao = pedido.itens.some((i) => REGRAS[i.classificacao].exigeReceita);
     if (novo === 'EM_SEPARACAO') {
-      if (temPrescricao && operador.papel !== 'FARMACEUTICO') throw new ErroNegocio('Pedidos com medicamento sob prescrição só podem ser dispensados por farmacêutico.', 403);
+      if (temPrescricao && operador.papel !== 'FARMACEUTICO' && operador.papel !== 'ADMIN') throw new ErroNegocio('Pedidos com medicamento sob prescrição só podem ser dispensados por farmacêutico.', 403);
       await baixar(tx, pedido.lojaId, pedido.itens, { pedidoId: pedido.id, usuarioId: operador.id });
       const receita = pedido.receitas.find((r) => r.status === 'APROVADA');
       for (const i of pedido.itens.filter((x) => REGRAS[x.classificacao].escrituracao)) {

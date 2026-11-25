@@ -32,7 +32,7 @@ async function Conteudo() {
           <label><span className="rotulo">E-mail</span><input name="email" type="email" defaultValue={c.contato.email} className="campo" /></label>
           <label><span className="rotulo">AFE / ANVISA</span><input name="afe" defaultValue={c.contato.afe} className="campo" /></label>
           <label><span className="rotulo">Farmacêutico(a) responsável</span><input name="rtNome" defaultValue={c.contato.rtNome} className="campo" /></label>
-          <label><span className="rotulo">CRF</span><input name="rtCrf" defaultValue={c.contato.rtCrf} placeholder="CRF-SP 12345" className="campo" /></label>
+          <label><span className="rotulo">CRF</span><input name="rtCrf" defaultValue={c.contato.rtCrf} placeholder="CRF-MA 12345" className="campo" /></label>
         </FormAcao>
       </Secao>
       <Secao titulo="Assistente virtual" icone="assistente" descricao="Nome exibido para os clientes e quantas consultas cada cliente cadastrado pode fazer por dia.">

@@ -114,6 +114,12 @@ export const DESCRICAO_PERMISSAO: Record<Permissao, string> = {
 };
 
 /** Verificação com a matriz padrão (uso em testes e fora de requisição). No servidor use temPermissao(). */
+/**
+ * O dono (Administrador) tem acesso TOTAL: tudo que o farmacêutico faz no sistema
+ * (PDV com antibióticos/controlados, receitas, separação, atendimento) ele também faz.
+ */
+export const atuaComoFarmaceutico = (papel: Papel | undefined | null) => papel === 'FARMACEUTICO' || papel === 'ADMIN';
+
 export const pode = (papel: Papel | undefined | null, p: Permissao, matriz: MatrizPermissoes = PERMISSOES as unknown as MatrizPermissoes) =>
   !!papel && (papel === 'ADMIN' || (matriz[p] as readonly Papel[]).includes(papel));
 

@@ -11,7 +11,7 @@ import { FARMACIA } from '@/lib/farmacia';
  */
 export const SCHEMAS = {
   contato: z.object({
-    whatsapp: z.string().transform((s) => s.replace(/\D/g, '')).refine((s) => s === '' || (s.length >= 12 && s.length <= 13), 'WhatsApp com DDI e DDD, ex.: 5511999990000'),
+    whatsapp: z.string().transform((s) => s.replace(/\D/g, '')).refine((s) => s === '' || (s.length >= 12 && s.length <= 13), 'WhatsApp com DDI e DDD, ex.: 5598999990000'),
     telefone: z.string().max(20),
     email: z.string().max(120),
     afe: z.string().max(30),

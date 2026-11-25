@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { connection } from 'next/server';
 import { db } from '@/server/db';
 import { usuarioAtual } from '@/server/auth';
-import { conversaAtiva, conversaDoUsuario, listarConversas, mensagensDa, perguntasRestantes } from '@/server/assistente/conversas';
+import { conversaUnica, historicoDoCliente, perguntasRestantes } from '@/server/assistente/conversas';
 import { REGRAS_PUBLICAS } from '@/server/assistente/regras';
 import { configuracoes, linkWhatsLoja } from '@/server/configuracoes';
 import { BotaoLink, Esqueleto } from '@/components/ui';
@@ -27,9 +27,9 @@ function Regras() {
   );
 }
 
-async function Conteudo({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+async function Conteudo() {
   await connection();
-  const [u, cfg, sp] = await Promise.all([usuarioAtual(), configuracoes(), searchParams]);
+  const [u, cfg] = await Promise.all([usuarioAtual(), configuracoes()]);
   const nome = cfg.assistente.nome;
   if (!u) {
     return (
@@ -49,35 +49,34 @@ async function Conteudo({ searchParams }: { searchParams: Promise<Record<string,
         <Regras />
         <div className="cartao space-y-3 p-6">
           <h2 className="text-lg font-extrabold text-marca-600">Antes de começar</h2>
-          <p className="text-sm text-slate-700">Suas conversas ficam salvas e cifradas para você consultar depois; só a equipe farmacêutica pode lê-las. As fotos são analisadas e descartadas na hora. Para responder, a pergunta e a foto são processadas por um serviço de inteligência artificial contratado pela farmácia, que não as usa para treinar modelos. Você pode revogar este consentimento em Minha conta › Dados e privacidade.</p>
+          <p className="text-sm text-slate-700">Suas conversas ficam salvas e cifradas para você consultar depois; só a equipe farmacêutica pode lê-las. As fotos são analisadas e descartadas na hora. Para responder, a pergunta e a foto são processadas por um serviço de inteligência artificial contratado pela farmácia, que não as usa para treinar modelos.</p>
           <AceitarTermo />
         </div>
       </div>
     );
   }
-  const pedida = typeof sp.c === 'string' && /^[0-9a-f-]{36}$/.test(sp.c) ? await conversaDoUsuario(u.id, sp.c) : null;
-  const conversa = sp.nova ? null : pedida ?? (await conversaAtiva(u.id));
-  const [msgs, lista, cota] = await Promise.all([conversa ? mensagensDa(conversa.id) : [], listarConversas(u.id), perguntasRestantes(u.id)]);
+  // Uma conversa só, para sempre: mostra todo o histórico do cliente
+  const [conversa, msgs, cota] = await Promise.all([conversaUnica(u.id), historicoDoCliente(u.id), perguntasRestantes(u.id)]);
   const ultima = [...msgs].reverse().find((m) => m.autor === 'CLIENTE')?.texto;
   const linkWhats = await linkWhatsLoja(`Olá! Sou ${u.nome.split(' ')[0]} e falei com a ${nome} no site.${ultima && ultima !== '(enviou uma foto)' ? ` Minha dúvida: ${ultima.slice(0, 300)}` : ''}`);
   return (
     <ChatAssistente
-      conversaId={conversa?.id ?? null}
       mensagens={msgs.map((m) => ({ ...m, previaImagem: null }))}
-      conversas={lista}
       nome={nome}
       restantes={cota.restantes}
       limite={cota.limite}
       linkWhats={linkWhats}
+      whatsapp={cfg.contato.whatsapp || null}
+      nomeCliente={u.nome}
       emAtendimento={conversa?.status === 'EM_ATENDIMENTO'}
     />
   );
 }
 
-export default function Assistente(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default function Assistente() {
   return (
     <div className="container-loja max-w-6xl py-6">
-      <Suspense fallback={<Esqueleto className="h-[70vh]" />}><Conteudo searchParams={props.searchParams} /></Suspense>
+      <Suspense fallback={<Esqueleto className="h-[70vh]" />}><Conteudo /></Suspense>
       <p className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-slate-500">
         <a href="tel:192" className="inline-flex items-center gap-1 font-semibold text-oferta-600"><Icone nome="emergencia" className="h-3.5 w-3.5" />Emergência: 192</a>
         <span>Intoxicação: 0800 722 6001</span>

@@ -16,7 +16,7 @@ export const metadata = { title: 'Receitas' };
 async function Conteudo() {
   await connection();
   const u = await paginaAdmin('verReceitas');
-  const podeAvaliar = u.papel === 'FARMACEUTICO';
+  const podeAvaliar = u.papel === 'FARMACEUTICO' || u.papel === 'ADMIN';
   const [fila, recentes] = await Promise.all([
     receitasPendentes(),
     db.receita.findMany({ where: { status: { not: 'PENDENTE' } }, orderBy: { avaliadoEm: 'desc' }, take: 15, include: { pedido: { select: { numero: true, id: true } }, farmaceutico: { select: { nome: true } } } }),

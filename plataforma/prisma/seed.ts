@@ -184,6 +184,24 @@ async function limpar() {
   await db.$executeRawUnsafe(`TRUNCATE ${tabelas.map((t) => `"${schema}"."${t}"`).join(', ')} RESTART IDENTITY CASCADE`);
 }
 
+/** Bairros de São Luís/MA a partir do Sol e Mar: [bairro, taxa em centavos, prazo em minutos]. Valores próximos aos do Zé Brocado. */
+const BAIRROS_SAO_LUIS = [
+  ['Sol e Mar', 500, 25], ['Brisa do Mar', 500, 25], ["Olho d'Água", 700, 30], ['Jardim Atlântico', 700, 30], ['Vila Luizão', 700, 30],
+  ['Divinéia', 700, 30], ['Chácara Brasil', 700, 30], ['Calhau', 800, 35], ['Altos do Calhau', 800, 35], ['Jardim Eldorado', 800, 35],
+  ['Cohafuma', 1200, 40], ['Planalto Turu', 1200, 40], ['Turu', 1200, 40], ['Cohama', 1400, 45], ['Quintas do Calhau', 1400, 45],
+  ['Parque Shalom', 1400, 45], ['Anil', 1500, 50], ['Cohab Anil', 1800, 55], ['Vila Palmeira', 1800, 55], ['Cohatrac', 1800, 55],
+  ['Bequimão', 1900, 55], ['Vicente Fialho', 1900, 55], ['Vinhais Velho', 1900, 55], ['Vinhais', 2000, 60], ['Renascença I e II', 2000, 60],
+  ['Jardim Renascença', 2000, 60], ['São Marcos', 2000, 60], ["Ponta d'Areia", 2000, 60], ['Ponta do Farol', 2000, 60], ['Jaracati', 2000, 60],
+  ['Maranhão Novo', 2000, 60], ['Ipase', 2000, 60], ['Cohaserma', 2000, 60], ['Angelim', 2000, 60], ['Barreto', 2000, 60],
+] as const;
+
+/** Ruas reais de São Luís por bairro (números e CEPs dos pedidos de exemplo são fictícios). */
+const RUAS_SAO_LUIS: [string, string][] = [
+  ['Av. dos Holandeses', 'Calhau'], ['Av. dos Holandeses', "Olho d'Água"], ['Av. Colares Moreira', 'Renascença I e II'],
+  ['Av. Daniel de La Touche', 'Cohama'], ['Av. São Luís Rei de França', 'Turu'], ['Av. Litorânea', 'Calhau'],
+  ['Av. Jerônimo de Albuquerque', 'Cohama'], ['Av. dos Africanos', 'Vila Palmeira'], ['Av. Castelo Branco', 'São Marcos'],
+];
+
 async function main() {
   console.log('🧹 Limpando banco…');
   await limpar();
@@ -192,19 +210,19 @@ async function main() {
 
   // ── Lojas
   console.log('🏬 Lojas…');
-  // Loja de bairro (endereço e área de entrega são exemplos: ajuste em Painel › Lojas)
+  // New Farma Popular — Sol e Mar, São Luís/MA (rua, número e CEP exatos: ajuste em Painel › Lojas)
   const lojasDados = [
-    { nome: 'New Farma Popular', slug: 'matriz', cnpj: '49.500.230/0001-09', telefone: '11900000000', cep: '01310100', logradouro: 'Endereço da loja (configurar)', numero: 's/n', bairro: 'Centro', cidade: 'São Paulo', uf: 'SP', horario: 'Seg a sáb 8h–21h · Dom 9h–14h', faixasCep: ['01000-09999'], aceitaExpressa: true, centroDistribuicao: false },
+    { nome: 'New Farma Popular', slug: 'matriz', cnpj: '49.500.230/0001-09', telefone: '98900000000', cep: '65071000', logradouro: 'Endereço da loja (configurar)', numero: 's/n', bairro: 'Sol e Mar', cidade: 'São Luís', uf: 'MA', horario: 'Seg a sáb 8h–21h · Dom 9h–14h', faixasCep: ['65000-65109'], aceitaExpressa: true, centroDistribuicao: false },
   ];
   const lojas = [];
   for (const l of lojasDados) lojas.push(await db.loja.create({ data: l }));
   const [matriz] = lojas;
-  // Bairros atendidos (exemplo: ajuste em Painel › Entregas)
-  for (const [bairro, taxa, prazo] of [['Bela Vista', 500, 40], ['Consolação', 600, 45], ['Jardins', 700, 50], ['Liberdade', 700, 50], ['República', 600, 45], ['Pinheiros', 900, 60], ['Vila Mariana', 900, 60], ['Moema', 1000, 70]] as const) {
+  // Bairros de São Luís atendidos a partir do Sol e Mar — taxas próximas às do Zé Brocado (ajuste em Painel › Entregas)
+  for (const [bairro, taxa, prazo] of BAIRROS_SAO_LUIS) {
     await db.zonaEntrega.create({ data: { lojaId: matriz.id, bairro, bairroBusca: normalizar(bairro), taxa, prazoMinutos: prazo } });
   }
-  await db.loja.update({ where: { id: matriz.id }, data: { latitude: -23.5614, longitude: -46.6559 } });
-  for (const [nome, telefone, veiculo, placa] of [['Rafael Entregas', '11988880001', 'Moto Honda CG 160', 'ABC1D23'], ['Juliana Motogirl', '11988880002', 'Moto Yamaha Factor', 'EFG4H56']] as const) {
+  await db.loja.update({ where: { id: matriz.id }, data: { latitude: -2.4935, longitude: -44.2465 } }); // Sol e Mar (aproximado)
+  for (const [nome, telefone, veiculo, placa] of [['Rafael Entregas', '98988880001', 'Moto Honda CG 160', 'ABC1D23'], ['Juliana Motogirl', '98988880002', 'Moto Yamaha Factor', 'EFG4H56']] as const) {
     await db.motoboy.create({ data: { nome, telefone, veiculo, placa, taxaPorEntrega: 500, token: crypto.randomBytes(18).toString('base64url') } });
   }
   const paulista = matriz;
@@ -260,7 +278,7 @@ async function main() {
   const equipe: { nome: string; email: string; papel: Papel; lojaId?: string; crf?: string }[] = [
     { nome: 'Administrador', email: 'admin@farmacia.local', papel: 'ADMIN' },
     { nome: 'Carlos Gerente', email: 'gerente@farmacia.local', papel: 'GERENTE', lojaId: paulista.id },
-    { nome: 'Dra. Ana Farmacêutica', email: 'farmaceutico@farmacia.local', papel: 'FARMACEUTICO', lojaId: paulista.id, crf: 'CRF-SP 12345' },
+    { nome: 'Dra. Ana Farmacêutica', email: 'farmaceutico@farmacia.local', papel: 'FARMACEUTICO', lojaId: paulista.id, crf: 'CRF-MA 12345' },
     { nome: 'Bruno Atendente', email: 'atendente@farmacia.local', papel: 'ATENDENTE', lojaId: paulista.id },
   ];
   for (const u of equipe) await db.usuario.create({ data: { ...u, senhaHash, consentimentoLgpdEm: new Date() } });
@@ -268,11 +286,11 @@ async function main() {
   const cpfCliente = gerarCpf();
   const cliente = await db.usuario.create({
     data: {
-      nome: 'Maria Cliente da Silva', email: 'cliente@farmacia.local', senhaHash, papel: 'CLIENTE', telefone: '11999990000', nascimento: new Date('1988-04-12'),
+      nome: 'Maria Cliente da Silva', email: 'cliente@farmacia.local', senhaHash, papel: 'CLIENTE', telefone: '98999990000', nascimento: new Date('1988-04-12'),
       cpfCifrado: cifrar(cpfCliente), cpfHash: indiceCpf(cpfCliente), consentimentoLgpdEm: new Date(), aceitaMarketing: true,
       enderecos: { create: [
-        { apelido: 'Casa', destinatario: 'Maria Cliente da Silva', cep: '01310200', logradouro: 'Av. Paulista', numero: '1578', complemento: 'Apto 42', bairro: 'Bela Vista', cidade: 'São Paulo', uf: 'SP', principal: true },
-        { apelido: 'Trabalho', destinatario: 'Maria Cliente da Silva', cep: '05425070', logradouro: 'Rua Butantã', numero: '336', bairro: 'Pinheiros', cidade: 'São Paulo', uf: 'SP' },
+        { apelido: 'Casa', destinatario: 'Maria Cliente da Silva', cep: '65071000', logradouro: 'Av. dos Holandeses', numero: '1578', complemento: 'Apto 42', bairro: 'Calhau', cidade: 'São Luís', uf: 'MA', principal: true },
+        { apelido: 'Trabalho', destinatario: 'Maria Cliente da Silva', cep: '65075000', logradouro: 'Av. Colares Moreira', numero: '336', bairro: 'Renascença I e II', cidade: 'São Luís', uf: 'MA' },
       ] },
     },
   });
@@ -312,7 +330,7 @@ async function main() {
         modalidade: canal === 'PDV' ? 'BALCAO' : modalidade, subtotal, frete: canal === 'PDV' ? 0 : frete, total, clienteNome: c.nome,
         metodoPagamento: pick(['CARTAO_CREDITO', 'CARTAO_CREDITO', 'PIX', canal === 'PDV' ? 'DINHEIRO' : 'PIX'] as const),
         criadoEm: i < 12 ? dias(0) : criadoEm, atualizadoEm: criadoEm,
-        enderecoEntrega: modalidade !== 'RETIRADA' && canal !== 'PDV' ? { apelido: 'Casa', destinatario: c.nome, cep: '01310200', logradouro: 'Av. Paulista', numero: String(int(1, 2000)), bairro: 'Bela Vista', cidade: 'São Paulo', uf: 'SP' } : undefined,
+        enderecoEntrega: modalidade !== 'RETIRADA' && canal !== 'PDV' ? (() => { const [rua, bairro] = pick(RUAS_SAO_LUIS); return { apelido: 'Casa', destinatario: c.nome, cep: '65000000', logradouro: rua, numero: String(int(1, 2000)), bairro, cidade: 'São Luís', uf: 'MA' }; })() : undefined,
         itens: { create: itens.map(({ p, q }) => ({ produtoId: p.id, nome: p.nome, sku: p.sku, classificacao: p.classificacao, quantidade: q, precoUnitario: p.preco, total: p.preco * q, custoUnitario: p.custo })) },
         eventos: { create: [{ status: 'PAGO', descricao: 'Pagamento aprovado.', criadoEm }, ...(status === 'ENTREGUE' ? [{ status: 'ENTREGUE' as const, descricao: 'Pedido entregue.', criadoEm }] : [])] },
         pagamentos: { create: { metodo: 'CARTAO_CREDITO', status: status === 'CANCELADO' ? 'ESTORNADO' : 'APROVADO', valor: total, gatewayId: `seed_${i}_${crypto.randomUUID()}`, cartaoBandeira: 'Visa', cartaoFinal: '1111', criadoEm } },

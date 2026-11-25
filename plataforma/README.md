@@ -19,8 +19,8 @@ npm run dev                    # sobe o Postgres, aplica migrações, popula (1�
 |---|---|---|
 | Cliente | `cliente@farmacia.local` | compra, pontos, assinaturas, lembretes |
 | Farmacêutica | `farmaceutico@farmacia.local` | valida receitas, dispensa antibióticos, PDV, escrituração |
-| Gerente | `gerente@farmacia.local` | produtos, preços, promoções, compras, relatórios (Loja Paulista) |
-| Atendente | `atendente@farmacia.local` | pedidos, PDV, clientes (Loja Paulista) |
+| Gerente | `gerente@farmacia.local` | produtos, preços, promoções, compras, relatórios (loja Sol e Mar) |
+| Atendente | `atendente@farmacia.local` | pedidos, PDV, clientes (loja Sol e Mar) |
 | Admin | `admin@farmacia.local` | tudo + equipe, lojas e auditoria |
 
 Senha: a que estiver em `DEMO_PASSWORD` no `.env`.

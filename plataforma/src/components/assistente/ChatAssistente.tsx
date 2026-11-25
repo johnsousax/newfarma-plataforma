@@ -1,14 +1,10 @@
 'use client';
 import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { perguntarAcao, excluirConversaAcao } from '@/app/acoes/assistente';
+import { perguntarAcao } from '@/app/acoes/assistente';
 import { ListaMensagens, type MensagemChat } from './Mensagens';
 import { Icone } from '@/components/icones';
 import { Aviso, cx } from '@/components/ui';
-import { dataHora } from '@/lib/formato';
-
-type Conversa = { id: string; titulo: string; atualizadoEm: Date | string; emergencia: boolean };
 
 /** Reduz a foto no navegador (máx. 1568 px, JPEG): envio rápido e sem dados de localização (EXIF). */
 async function prepararFoto(arquivo: File): Promise<File> {
@@ -44,15 +40,15 @@ function Digitando({ nome, comFoto }: { nome: string; comFoto: boolean }) {
   );
 }
 
-export function ChatAssistente({ conversaId, mensagens, conversas, nome, restantes, limite, linkWhats, emAtendimento }: {
-  conversaId: string | null; mensagens: MensagemChat[]; conversas: Conversa[]; nome: string; restantes: number; limite: number; linkWhats: string | null; emAtendimento: boolean;
+/** Chat com a assistente: uma conversa só, para sempre (sem "nova conversa" nem lista de conversas). */
+export function ChatAssistente({ mensagens, nome, restantes, limite, linkWhats, whatsapp, nomeCliente, emAtendimento }: {
+  mensagens: MensagemChat[]; nome: string; restantes: number; limite: number; linkWhats: string | null; whatsapp: string | null; nomeCliente: string; emAtendimento: boolean;
 }) {
   const router = useRouter();
   const [texto, setTexto] = useState('');
   const [foto, setFoto] = useState<File | null>(null);
   const [previa, setPrevia] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [lateral, setLateral] = useState(false);
   const [pendente, iniciar] = useTransition();
   const [otimistas, adicionar] = useOptimistic(mensagens, (atual, nova: MensagemChat) => [...atual, nova]);
   const fim = useRef<HTMLDivElement>(null);
@@ -72,7 +68,6 @@ export function ChatAssistente({ conversaId, mensagens, conversas, nome, restant
     if (pendente || (!texto.trim() && !foto)) return;
     const fd = new FormData();
     fd.set('texto', texto);
-    if (conversaId) fd.set('conversaId', conversaId);
     if (foto) fd.set('foto', foto);
     const minhaPrevia = previa;
     const comFoto = !!foto;
@@ -81,34 +76,15 @@ export function ChatAssistente({ conversaId, mensagens, conversas, nome, restant
       adicionar({ id: `tmp-${Date.now()}`, autor: 'CLIENTE', texto: texto.trim() || '(enviou uma foto)', criadoEm: new Date(), teveImagem: comFoto, dados: null, previaImagem: minhaPrevia });
       const r = await perguntarAcao(fd);
       if (!r.ok) { setErro(r.erro); setTexto(fd.get('texto') as string); return; }
-      if (r.dados && r.dados !== conversaId) router.replace(`/assistente?c=${r.dados}`, { scroll: false });
       router.refresh();
     });
   }
 
   const vazia = !otimistas.length;
   return (
-    <div className="grid min-h-[70vh] gap-4 lg:grid-cols-[260px_1fr]">
-      <aside className={cx('space-y-2 lg:block', lateral ? 'block' : 'hidden')}>
-        <Link href="/assistente?nova=1" className="flex items-center justify-center gap-2 rounded-xl bg-marca-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-marca-700"><Icone nome="mais" />Nova conversa</Link>
-        <p className="px-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Suas conversas</p>
-        <ul className="max-h-[60vh] space-y-0.5 overflow-y-auto">
-          {conversas.map((c) => (
-            <li key={c.id} className="group flex items-center">
-              <Link href={`/assistente?c=${c.id}`} className={cx('min-w-0 flex-1 rounded-lg px-3 py-2 text-sm', c.id === conversaId ? 'bg-marca-50 font-semibold text-marca-700' : 'text-slate-600 hover:bg-slate-100')}>
-                <span className="block truncate">{c.emergencia && <Icone nome="emergencia" className="mr-1 inline h-3.5 w-3.5 text-oferta-600" />}{c.titulo}</span>
-                <span className="block text-[11px] text-slate-400">{dataHora(c.atualizadoEm)}</span>
-              </Link>
-              <button type="button" aria-label="Excluir conversa" onClick={() => iniciar(async () => { await excluirConversaAcao(c.id); router.replace('/assistente?nova=1'); router.refresh(); })} className="rounded-lg p-1.5 text-slate-300 opacity-0 hover:bg-slate-100 hover:text-oferta-600 group-hover:opacity-100"><Icone nome="excluir" className="h-3.5 w-3.5" /></button>
-            </li>
-          ))}
-          {!conversas.length && <li className="px-3 text-xs text-slate-400">Nenhuma conversa ainda.</li>}
-        </ul>
-      </aside>
-
-      <section className="flex min-w-0 flex-col rounded-3xl border border-slate-200 bg-white">
+    <div className="mx-auto max-w-4xl space-y-4">
+      <section className="flex min-h-[65vh] min-w-0 flex-col rounded-3xl border border-slate-200 bg-white">
         <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-          <button type="button" onClick={() => setLateral((x) => !x)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" aria-label="Conversas"><Icone nome="menu" className="h-5 w-5" /></button>
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-marca-600 text-white"><Icone nome="assistente" /></span>
             <div className="leading-tight"><p className="font-bold text-marca-700">{nome}</p><p className="text-xs text-slate-500">Assistente virtual · {restantes} de {limite} consultas hoje</p></div>
@@ -129,7 +105,7 @@ export function ChatAssistente({ conversaId, mensagens, conversas, nome, restant
                 ))}
               </div>
             </div>
-          ) : <ListaMensagens mensagens={otimistas} nomeAssistente={nome} linkWhats={linkWhats} />}
+          ) : <ListaMensagens mensagens={otimistas} nomeAssistente={nome} linkWhats={linkWhats} whatsapp={whatsapp} nomeParaWhats={nomeCliente} />}
           {pendente && <Digitando nome={nome} comFoto={!!otimistas.at(-1)?.teveImagem} />}
           <div ref={fim} />
         </div>

@@ -5,7 +5,7 @@ import { db } from '@/server/db';
 import { executar, ErroNegocio } from '@/server/erros';
 import { exigirUsuario, exigirPermissao, ipAtual, limitarTaxa } from '@/server/auth';
 import { auditar } from '@/server/auditoria';
-import { perguntar, excluirConversa, responderComoFarmaceutico, finalizarAtendimento, assumirAtendimento } from '@/server/assistente/conversas';
+import { perguntar, responderComoFarmaceutico, finalizarAtendimento, assumirAtendimento } from '@/server/assistente/conversas';
 import { VERSAO_REGRAS } from '@/server/assistente/regras';
 
 export async function aceitarTermoAssistente() {
@@ -26,21 +26,13 @@ export async function revogarTermoAssistente() {
   });
 }
 
-/** Envia a pergunta; devolve o id da conversa (nova ou existente). */
+/** Envia a pergunta na conversa única do cliente; devolve o id dessa conversa. */
 export async function perguntarAcao(form: FormData) {
   return executar(async () => {
     const u = await exigirUsuario();
     limitarTaxa(`assistente:${u.id}`, 6, 60_000);
     const arquivo = form.get('foto');
-    const conversaId = form.get('conversaId') ? z.string().uuid().parse(form.get('conversaId')) : null;
-    return perguntar(u, { conversaId, texto: String(form.get('texto') ?? ''), arquivo: arquivo instanceof File && arquivo.size ? arquivo : null }, await ipAtual());
-  });
-}
-
-export async function excluirConversaAcao(id: string) {
-  return executar(async () => {
-    const u = await exigirUsuario();
-    await excluirConversa(u.id, z.string().uuid().parse(id));
+    return perguntar(u, { texto: String(form.get('texto') ?? ''), arquivo: arquivo instanceof File && arquivo.size ? arquivo : null }, await ipAtual());
   });
 }
 

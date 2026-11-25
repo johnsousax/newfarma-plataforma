@@ -1,13 +1,13 @@
 import { Suspense } from 'react';
 import { connection } from 'next/server';
 import { paginaAdmin } from '@/server/auth';
-import { caixaAberto, resumoCaixa } from '@/server/admin/operacoes';
+import { caixaAberto, lojaDoCaixa, resumoCaixa } from '@/server/admin/operacoes';
 import { db } from '@/server/db';
 import { Aviso, Esqueleto, TituloPagina, Badge } from '@/components/ui';
 import { FormAcao } from '@/components/admin/Acoes';
 import { Pdv } from '@/components/admin/Pdv';
 import { abrirCaixaAcao, fecharCaixaAcao, movimentarCaixaAcao } from '@/app/acoes/admin';
-import { METODO_PAGAMENTO } from '@/lib/dominio';
+import { METODO_PAGAMENTO, atuaComoFarmaceutico } from '@/lib/dominio';
 import { brl, dataHora } from '@/lib/formato';
 
 export const metadata = { title: 'PDV' };
@@ -15,7 +15,7 @@ export const metadata = { title: 'PDV' };
 async function Conteudo() {
   await connection();
   const u = await paginaAdmin('pdv');
-  if (!u.lojaId) return <Aviso tipo="alerta">Seu usuário não está vinculado a uma loja. Peça ao administrador para definir sua loja em Equipe.</Aviso>;
+  if (!(await lojaDoCaixa(u))) return <Aviso tipo="alerta">{u.papel === 'ADMIN' ? 'Cadastre uma loja ativa em Lojas para usar o PDV.' : 'Seu usuário não está vinculado a uma loja. Peça ao administrador para definir sua loja em Equipe.'}</Aviso>;
   const caixa = await caixaAberto(u.id);
   if (!caixa) {
     const ultimos = await db.caixaSessao.findMany({ where: { operadorId: u.id, status: 'FECHADO' }, orderBy: { fechadoEm: 'desc' }, take: 5 });
@@ -40,7 +40,7 @@ async function Conteudo() {
         <Badge cor="emerald" className="px-3 py-1">● Caixa aberto · {caixa.loja.nome}</Badge>
         <span className="text-slate-500">desde {dataHora(caixa.abertoEm)} · vendas {brl(r.totalVendas)} · dinheiro na gaveta {brl(r.dinheiroEsperado)}</span>
       </div>
-      <Pdv farmaceutico={u.papel === 'FARMACEUTICO'} />
+      <Pdv farmaceutico={atuaComoFarmaceutico(u.papel)} />
       <details className="cartao p-5">
         <summary className="cursor-pointer font-semibold">Sangria, suprimento e fechamento</summary>
         <div className="mt-4 grid gap-6 lg:grid-cols-3">

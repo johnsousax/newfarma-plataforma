@@ -44,10 +44,28 @@ function CardsProdutos({ produtos }: { produtos: ProdutoSugerido[] }) {
   );
 }
 
-export function ListaMensagens({ mensagens, nomeCliente, nomeAssistente = 'Clara', linkWhats }: { mensagens: MensagemChat[]; nomeCliente?: string; nomeAssistente?: string; linkWhats?: string | null }) {
+/** Pede para falar com o farmacêutico? (encaminhamento da IA ou a resposta manda procurar o farmacêutico) */
+const mandaProFarmaceutico = (m: MensagemChat) => m.autor === 'ASSISTENTE' && !m.dados?.emergencia && (!!m.dados?.encaminhado || /farmac[eê]utic/i.test(m.texto));
+
+/** Link do WhatsApp da loja já com a mensagem sobre o remédio da conversa. */
+function linkWhatsRemedio(numero: string, m: MensagemChat, pergunta: string | undefined, cliente?: string) {
+  const remedios = [
+    ...(m.dados?.medicamentos ?? []).map((x) => [x.nome, x.concentracao].filter(Boolean).join(' ')),
+    ...(m.dados?.produtos ?? []).map((p) => p.nome),
+  ].filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 3);
+  const duvida = pergunta && pergunta !== '(enviou uma foto)' ? pergunta.slice(0, 300) : '';
+  const texto = [
+    `Olá! ${cliente ? `Sou ${cliente.split(' ')[0]} e ` : ''}tirei uma dúvida com a assistente do site e ela pediu para eu falar com o farmacêutico.`,
+    remedios.length ? `Remédio: ${remedios.join(', ')}.` : '',
+    duvida ? `Minha dúvida: ${duvida}` : '',
+  ].filter(Boolean).join('\n');
+  return `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+}
+
+export function ListaMensagens({ mensagens, nomeCliente, nomeAssistente = 'Clara', linkWhats, whatsapp, nomeParaWhats }: { mensagens: MensagemChat[]; nomeCliente?: string; nomeAssistente?: string; linkWhats?: string | null; /** Número do WhatsApp da loja (só dígitos, com DDI) */ whatsapp?: string | null; nomeParaWhats?: string }) {
   return (
     <ol className="space-y-5">
-      {mensagens.map((m) => {
+      {mensagens.map((m, idx) => {
         const cliente = m.autor === 'CLIENTE';
         if (m.autor === 'SISTEMA') return <li key={m.id} className="text-center text-xs text-slate-500">{m.texto}</li>;
         const d = m.dados;
@@ -98,9 +116,11 @@ export function ListaMensagens({ mensagens, nomeCliente, nomeAssistente = 'Clara
                   <p className="text-[11px] leading-snug text-slate-500">{AVISO_FIXO}</p>
                 </div>
               )}
-              {d?.encaminhado && linkWhats && !d.emergencia && (
-                <a href={linkWhats} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"><Icone nome="whatsapp" />Falar com o farmacêutico</a>
-              )}
+              {mandaProFarmaceutico(m) && (() => {
+                const pergunta = mensagens.slice(0, idx).reverse().find((x) => x.autor === 'CLIENTE')?.texto;
+                const href = whatsapp ? linkWhatsRemedio(whatsapp, m, pergunta, nomeParaWhats) : linkWhats;
+                return href ? <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"><Icone nome="whatsapp" />Falar com o farmacêutico no WhatsApp</a> : null;
+              })()}
               <p className={cx('text-[10px]', cliente ? 'text-marca-200' : 'text-slate-400')}>{dataHora(m.criadoEm)}</p>
             </div>
           </li>

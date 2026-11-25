@@ -59,7 +59,7 @@ async function Conteudo() {
         <label><span className="rotulo">E-mail</span><input name="email" type="email" required className="campo" /></label>
         <label><span className="rotulo">Senha inicial</span><input name="senha" type="password" required minLength={10} className="campo" /></label>
         <Selects lojas={lojas} />
-        <label><span className="rotulo">CRF (farmacêutico)</span><input name="crf" placeholder="CRF-SP 12345" className="campo" /></label>
+        <label><span className="rotulo">CRF (farmacêutico)</span><input name="crf" placeholder="CRF-MA 12345" className="campo" /></label>
       </FormAcao>
       <p className="text-sm text-slate-600">O que cada cargo pode fazer é definido em <Link href="/admin/permissoes" className="link">Cargos e permissões</Link>.</p>
     </div>

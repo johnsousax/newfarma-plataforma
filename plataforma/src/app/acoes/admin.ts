@@ -412,10 +412,12 @@ export async function buscarProdutoPdv(q: string) {
   const u = await exigirPermissao('pdv');
   const t = normalizar(String(q ?? '')).slice(0, 60);
   if (t.length < 2) return [];
+  const { lojaDoCaixa, caixaAberto } = await import('@/server/admin/operacoes');
+  const lojaPdv = (await caixaAberto(u.id))?.lojaId ?? (await lojaDoCaixa(u)) ?? undefined;
   const produtos = await db.produto.findMany({
     where: { ativo: true, OR: [{ busca: { contains: t } }, { ean: t }, { sku: t.toUpperCase() }] },
     take: 8, orderBy: { vendas: 'desc' },
-    select: { id: true, nome: true, preco: true, icone: true, classificacao: true, ean: true, lotes: { where: { lojaId: u.lojaId ?? undefined, validade: { gt: new Date() } }, select: { quantidade: true, reservado: true } } },
+    select: { id: true, nome: true, preco: true, icone: true, classificacao: true, ean: true, lotes: { where: { lojaId: lojaPdv, validade: { gt: new Date() } }, select: { quantidade: true, reservado: true } } },
   });
   return produtos.map(({ lotes, ...p }) => ({ ...p, disponivel: lotes.reduce((s, l) => s + l.quantidade - l.reservado, 0) }));
 }
@@ -465,7 +467,7 @@ export async function salvarMembroEquipe(_: unknown, form: FormData) {
   return executar(async () => {
     const u = await exigirPermissao('equipe');
     const d = p.data;
-    if (d.papel === 'FARMACEUTICO' && !/^CRF-[A-Z]{2}\s?\d{3,7}$/i.test(d.crf ?? '')) throw new ErroNegocio('Farmacêutico exige CRF válido (ex.: CRF-SP 12345).');
+    if (d.papel === 'FARMACEUTICO' && !/^CRF-[A-Z]{2}\s?\d{3,7}$/i.test(d.crf ?? '')) throw new ErroNegocio('Farmacêutico exige CRF válido (ex.: CRF-MA 12345).');
     const id = form.get('id') ? uuid.parse(form.get('id')) : null;
     const lojaId = d.lojaId ? uuid.parse(d.lojaId) : null;
     if (id) {

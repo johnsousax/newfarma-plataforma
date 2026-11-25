@@ -99,7 +99,7 @@ describe('fluxo do assistente', () => {
     await responderComoFarmaceutico(await usuario('farmaceutico@farmacia.local'), c.id, 'Olá! Não misture com álcool sem falar com seu médico.', 'ip');
     expect((await conversaAtiva(u.id))!.status).toBe('EM_ATENDIMENTO');
     consultarIA.mockReset();
-    await perguntar(u, { conversaId: c.id, texto: 'obrigado', arquivo: null }, 'ip');
+    await perguntar(u, { texto: 'obrigado', arquivo: null }, 'ip');
     expect(consultarIA).not.toHaveBeenCalled();
   });
 
@@ -113,18 +113,31 @@ describe('fluxo do assistente', () => {
     expect(sugeridos.every((p) => p.classificacao === 'MIP' || p.classificacao === 'NAO_MEDICAMENTO')).toBe(true);
   });
 
-  it('cada pergunta nova sem conversa cria uma conversa no histórico; limite diário é respeitado', async () => {
+  it('é uma conversa só, para sempre: todas as perguntas caem na mesma; limite diário é respeitado', async () => {
     const u = await usuario(CLIENTE);
     consultarIA.mockResolvedValue({ ...base, resposta: 'A loratadina é indicada para alergias.' });
     const a = await perguntar(u, { texto: 'para que serve loratadina?', arquivo: null }, 'ip');
     const b = await perguntar(u, { texto: 'e a dipirona?', arquivo: null }, 'ip');
-    expect(a).not.toBe(b);
-    const { listarConversas, perguntasRestantes } = await import('@/server/assistente/conversas');
-    expect((await listarConversas(u.id)).map((c) => c.titulo)).toContain('para que serve loratadina?');
+    expect(b).toBe(a);
+    expect(await db.conversa.count({ where: { usuarioId: u.id } })).toBe(1);
+    const { historicoDoCliente, perguntasRestantes } = await import('@/server/assistente/conversas');
+    expect((await historicoDoCliente(u.id)).filter((m) => m.autor === 'CLIENTE').map((m) => m.texto)).toEqual(['para que serve loratadina?', 'e a dipirona?']);
     const cota = await perguntasRestantes(u.id);
     expect(cota.limite).toBe(5);
-    for (let i = cota.usadas; i < cota.limite; i++) await perguntar(u, { conversaId: a, texto: `pergunta ${i}`, arquivo: null }, 'ip');
-    await expect(perguntar(u, { conversaId: a, texto: 'mais uma', arquivo: null }, 'ip')).rejects.toThrow(/consultas de hoje/);
+    for (let i = cota.usadas; i < cota.limite; i++) await perguntar(u, { texto: `pergunta ${i}`, arquivo: null }, 'ip');
+    await expect(perguntar(u, { texto: 'mais uma', arquivo: null }, 'ip')).rejects.toThrow(/consultas de hoje/);
+  });
+
+  it('depois que o farmacêutico encerra, a MESMA conversa volta para a assistente', async () => {
+    const u = await usuario(CLIENTE);
+    const { finalizarAtendimento } = await import('@/server/assistente/conversas');
+    consultarIA.mockResolvedValue({ ...base, resposta: 'A loratadina é indicada para alergias.' });
+    const a = await perguntar(u, { texto: 'para que serve loratadina?', arquivo: null }, 'ip');
+    await finalizarAtendimento(await usuario('farmaceutico@farmacia.local'), a);
+    const b = await perguntar(u, { texto: 'e a cetirizina?', arquivo: null }, 'ip');
+    expect(b).toBe(a);
+    expect((await conversaAtiva(u.id))!.status).toBe('ASSISTENTE');
+    expect(consultarIA).toHaveBeenCalledTimes(2);
   });
 
   it('rejeita arquivo que não é imagem', async () => {

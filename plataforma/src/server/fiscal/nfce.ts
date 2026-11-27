@@ -11,7 +11,7 @@ import { FARMACIA } from '@/lib/farmacia';
 
 const reais = (c: number) => (c / 100).toFixed(2);
 // Meios de pagamento da NF-e (tPag)
-const TPAG: Record<string, string> = { DINHEIRO: '01', CARTAO_CREDITO: '03', CARTAO_DEBITO: '04', PIX: '17' };
+const TPAG: Record<string, string> = { DINHEIRO: '01', CARTAO_CREDITO: '03', CARTAO_DEBITO: '04', PIX: '17', CREDIARIO: '05', CONVENIO: '05' }; // 05 = crédito loja
 const CRT: Record<string, number> = { simples_nacional: 1, simples_excesso: 2, normal: 3 };
 
 /** Pendências que impedem emitir nota (dados do emitente e produtos sem NCM). */

@@ -11,6 +11,8 @@ import { config } from '../config';
 import { REGRAS, nivelFidelidade, atuaComoFarmaceutico } from '@/lib/dominio';
 import type { UsuarioSessao } from '../auth';
 import type { MetodoPagamento } from '@/generated/prisma/enums';
+import { lancarCompra, descontoConvenio } from '../crediario';
+import { EQUIPE } from '@/lib/dominio';
 
 // ─────────────── Compras ───────────────
 
@@ -122,17 +124,38 @@ export async function fecharCaixa(u: UsuarioSessao, valorInformado: number) {
 
 export type ItemPdv = { produtoId: string; quantidade: number };
 
+/** Preço de cada item com as promoções vigentes (inclusive leve-pague). Usado no caixa e no orçamento. */
+export async function precificarItens(itens: ItemPdv[]) {
+  const produtos = await db.produto.findMany({ where: { id: { in: itens.map((i) => i.produtoId) }, ativo: true }, include: { categoria: { select: { paiId: true } } } });
+  if (produtos.length !== new Set(itens.map((i) => i.produtoId)).size) throw new ErroNegocio('Produto inválido ou inativo.');
+  const promos = await promocoesAtivas();
+  const linhas = itens.map((i) => {
+    const p = produtos.find((x) => x.id === i.produtoId)!;
+    const oferta = calcularOferta({ id: p.id, preco: p.preco, precoDe: p.precoDe, categoriaId: p.categoriaId, marcaId: p.marcaId, categoriaPaiId: p.categoria.paiId }, promos);
+    const desc = descontoLevePague(oferta, i.quantidade);
+    return { p, quantidade: i.quantidade, preco: oferta.preco, desconto: desc, total: oferta.preco * i.quantidade - desc };
+  });
+  const subtotal = linhas.reduce((s, l) => s + l.preco * l.quantidade, 0);
+  const descontoPromocoes = linhas.reduce((s, l) => s + l.desconto, 0);
+  return { produtos, linhas, subtotal, descontoPromocoes, total: subtotal - descontoPromocoes };
+}
+
 /**
  * Venda no balcão: preço com promoções vigentes, baixa imediata FEFO, pagamento presencial,
  * pontos para cliente identificado por CPF e escrituração de antimicrobianos/controlados.
  * Itens com prescrição exigem farmacêutico operando ou confirmação da receita conferida.
  */
-export async function venderBalcao(u: UsuarioSessao, d: { itens: ItemPdv[]; metodo: MetodoPagamento; valorRecebido?: number; cpf?: string; receitaConferida?: boolean; registroPrescritor?: string }) {
+export async function venderBalcao(u: UsuarioSessao, d: { itens: ItemPdv[]; metodo: MetodoPagamento; valorRecebido?: number; cpf?: string; receitaConferida?: boolean; registroPrescritor?: string; vendedorId?: string; contaCrediarioId?: string; orcamentoId?: string }) {
   const caixa = await caixaAberto(u.id);
   if (!caixa) throw new ErroNegocio('Abra o caixa antes de vender.');
   if (!d.itens.length) throw new ErroNegocio('Adicione produtos à venda.');
-  const produtos = await db.produto.findMany({ where: { id: { in: d.itens.map((i) => i.produtoId) }, ativo: true }, include: { categoria: { select: { paiId: true } } } });
-  if (produtos.length !== new Set(d.itens.map((i) => i.produtoId)).size) throw new ErroNegocio('Produto inválido ou inativo na venda.');
+  const aPrazo = d.metodo === 'CREDIARIO' || d.metodo === 'CONVENIO';
+  if (aPrazo && !d.contaCrediarioId) throw new ErroNegocio(d.metodo === 'CONVENIO' ? 'Escolha o conveniado.' : 'Escolha a conta de crediário do cliente.');
+  if (d.vendedorId && d.vendedorId !== u.id) {
+    const v = await db.usuario.findUnique({ where: { id: d.vendedorId }, select: { papel: true, ativo: true } });
+    if (!v || !v.ativo || !EQUIPE.includes(v.papel)) throw new ErroNegocio('Vendedor inválido.');
+  }
+  const { produtos, linhas, subtotal, descontoPromocoes: descontoItens, total: totalItens } = await precificarItens(d.itens);
 
   const precisaReceita = produtos.some((p) => REGRAS[p.classificacao].exigeReceita);
   const precisaEscrit = produtos.some((p) => REGRAS[p.classificacao].escrituracao);
@@ -145,15 +168,9 @@ export async function venderBalcao(u: UsuarioSessao, d: { itens: ItemPdv[]; meto
     cliente = await db.usuario.findUnique({ where: { cpfHash: indiceCpf(d.cpf) }, select: { id: true, nome: true } });
   }
 
-  const promos = await promocoesAtivas();
-  const linhas = d.itens.map((i) => {
-    const p = produtos.find((x) => x.id === i.produtoId)!;
-    const oferta = calcularOferta({ id: p.id, preco: p.preco, precoDe: p.precoDe, categoriaId: p.categoriaId, marcaId: p.marcaId, categoriaPaiId: p.categoria.paiId }, promos);
-    const desc = descontoLevePague(oferta, i.quantidade);
-    return { p, quantidade: i.quantidade, preco: oferta.preco, desconto: desc, total: oferta.preco * i.quantidade - desc };
-  });
-  const subtotal = linhas.reduce((s, l) => s + l.preco * l.quantidade, 0);
-  const descontoPromocoes = linhas.reduce((s, l) => s + l.desconto, 0);
+  // Convênio: desconto da empresa sobre o total
+  const conv = d.metodo === 'CONVENIO' ? await descontoConvenio(d.contaCrediarioId!, totalItens) : null;
+  const descontoPromocoes = descontoItens + (conv?.desconto ?? 0);
   const total = subtotal - descontoPromocoes;
 
   const pedido = await db.$transaction(async (tx) => {
@@ -161,8 +178,18 @@ export async function venderBalcao(u: UsuarioSessao, d: { itens: ItemPdv[]; meto
       data: {
         usuarioId: cliente?.id ?? null, lojaId: caixa.lojaId, canal: 'PDV', status: 'ENTREGUE', modalidade: 'BALCAO', subtotal, descontoPromocoes, total,
         metodoPagamento: d.metodo, operadorId: u.id, caixaId: caixa.id, clienteNome: cliente?.nome ?? 'Consumidor', cpfNaNota: d.cpf ? `***${d.cpf.slice(-4)}` : null,
+        vendedorId: d.vendedorId ?? u.id, contaCrediarioId: aPrazo ? d.contaCrediarioId : null, convenioId: conv?.convenio.id ?? null,
+        observacao: conv ? `Convênio ${conv.convenio.nome} (${(conv.convenio.descontoBp / 100).toLocaleString('pt-BR')}% de desconto)` : null,
       },
     });
+    if (aPrazo) {
+      const r = await lancarCompra(tx, { contaId: d.contaCrediarioId!, metodo: d.metodo as 'CREDIARIO' | 'CONVENIO', valor: total, pedidoId: ped.id, numero: ped.numero, usuarioId: u.id });
+      if (!cliente) await tx.pedido.update({ where: { id: ped.id }, data: { clienteNome: r.conta.nome } });
+    }
+    if (d.orcamentoId) {
+      const o = await tx.orcamento.updateMany({ where: { id: d.orcamentoId, status: 'ABERTO' }, data: { status: 'CONVERTIDO', pedidoId: ped.id } });
+      if (!o.count) throw new ErroNegocio('Esta pré-venda já foi finalizada ou cancelada.');
+    }
     const aloc = await reservar(tx, caixa.lojaId, linhas.map((l) => ({ produtoId: l.p.id, quantidade: l.quantidade, nome: l.p.nome })), { pedidoId: ped.id, usuarioId: u.id });
     const itens = linhas.map((l) => ({ produtoId: l.p.id, alocacoes: (aloc.get(l.p.id) ?? []) as unknown as Prisma.InputJsonValue }));
     await tx.pedidoItem.createMany({
@@ -191,5 +218,5 @@ export async function venderBalcao(u: UsuarioSessao, d: { itens: ItemPdv[]; meto
     await auditar('pdv.venda', { usuarioId: u.id, alvo: ped.id, detalhes: { numero: ped.numero, total, metodo: d.metodo } }, tx);
     return { ...ped, troco: pg.troco };
   }, { timeout: 20_000 });
-  return { id: pedido.id, numero: pedido.numero, total, troco: pedido.troco ?? 0, cliente: cliente?.nome ?? null };
+  return { id: pedido.id, numero: pedido.numero, total, troco: pedido.troco ?? 0, cliente: cliente?.nome ?? null, descontoConvenio: conv?.desconto ?? 0 };
 }

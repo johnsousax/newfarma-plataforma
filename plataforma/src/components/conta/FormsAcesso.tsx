@@ -1,7 +1,7 @@
 'use client';
 import { useActionState } from 'react';
 import Link from 'next/link';
-import { entrarAcao, cadastrarAcao } from '@/app/acoes/conta';
+import { entrarAcao, cadastrarAcao, codigoLoginAcao } from '@/app/acoes/conta';
 import { Aviso, Botao, Campo } from '@/components/ui';
 
 export function FormEntrar({ voltar }: { voltar?: string }) {
@@ -42,6 +42,22 @@ export function FormCadastro({ voltar }: { voltar?: string }) {
       {estado && !estado.ok && <Aviso tipo="erro">{estado.erro}</Aviso>}
       <Botao bloco tamanho="lg" disabled={pendente}>{pendente ? 'Criando conta…' : 'Criar minha conta'}</Botao>
       <p className="text-center text-sm text-slate-600">Já tem conta? <Link href="/entrar" className="link">Entrar</Link></p>
+    </form>
+  );
+}
+
+/** Segunda etapa do login (verificação em duas etapas). */
+export function FormCodigo({ voltar }: { voltar?: string }) {
+  const [estado, acao, pendente] = useActionState(codigoLoginAcao, null);
+  return (
+    <form action={acao} className="space-y-4">
+      <input type="hidden" name="voltar" value={voltar ?? ''} />
+      <Campo rotulo="Código de 6 dígitos" ajuda="Abra o app autenticador no celular. Sem o celular? Use um código de recuperação (ex.: ABCD-EFGH).">
+        <input name="codigo" inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={20} className="campo text-center text-2xl tracking-[0.4em]" />
+      </Campo>
+      {estado && !estado.ok && <Aviso tipo="erro">{estado.erro}</Aviso>}
+      <Botao bloco tamanho="lg" disabled={pendente}>{pendente ? 'Conferindo…' : 'Confirmar'}</Botao>
+      <p className="text-center text-sm text-slate-600"><Link href="/entrar" className="link">Voltar e entrar com outra conta</Link></p>
     </form>
   );
 }

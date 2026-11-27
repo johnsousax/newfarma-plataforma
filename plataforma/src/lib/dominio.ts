@@ -46,6 +46,8 @@ export const METODO_PAGAMENTO: Record<MetodoPagamento, string> = {
   CARTAO_DEBITO: 'Cartão de débito',
   PIX: 'PIX',
   DINHEIRO: 'Dinheiro',
+  CREDIARIO: 'Crediário (fiado)',
+  CONVENIO: 'Convênio',
 };
 
 export const PAPEL: Record<Papel, string> = {
@@ -83,6 +85,13 @@ export const PERMISSOES = {
   lojas: ['ADMIN'],
   configuracoes: ['ADMIN'],
   auditoria: ['ADMIN'],
+  orcamentos: ['ATENDENTE', 'FARMACEUTICO', 'GERENTE', 'ADMIN'],
+  crediario: ['GERENTE', 'ADMIN'],
+  venderCrediario: ['ATENDENTE', 'FARMACEUTICO', 'GERENTE', 'ADMIN'],
+  convenios: ['GERENTE', 'ADMIN'],
+  comissoes: ['ADMIN'],
+  inventario: ['FARMACEUTICO', 'GERENTE', 'ADMIN'],
+  backup: ['ADMIN'],
 } as const satisfies Record<string, Papel[]>;
 
 export type Permissao = keyof typeof PERMISSOES;
@@ -111,6 +120,13 @@ export const DESCRICAO_PERMISSAO: Record<Permissao, string> = {
   lojas: 'Dados da loja, entregas e integrações',
   configuracoes: 'Configurações gerais e permissões',
   auditoria: 'Trilha de auditoria',
+  orcamentos: 'Orçamentos e pré-vendas',
+  crediario: 'Crediário: contas dos clientes, limites, recebimentos e cobrança',
+  venderCrediario: 'Vender no crediário ou convênio pelo caixa',
+  convenios: 'Convênios com empresas',
+  comissoes: 'Comissões dos vendedores',
+  inventario: 'Inventário (balanço) do estoque',
+  backup: 'Baixar cópia de segurança dos dados',
 };
 
 /** Verificação com a matriz padrão (uso em testes e fora de requisição). No servidor use temPermissao(). */

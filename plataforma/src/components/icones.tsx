@@ -7,6 +7,7 @@ import {
   Receipt, Repeat, Route, ScrollText, Scissors, Search, Send, Settings, ShieldCheck, ShoppingCart, Siren, Smile, Sparkles, SprayCan, Star, Stethoscope,
   Store, Sun, Tag, TestTube, Thermometer, Trash2, Truck, Upload, User, UserCog, Users, Wallet, Wand2, Wind, X, Zap, Droplet, Droplets,
   ScanBarcode, ArrowLeft, CalendarDays, Briefcase, TrendingUp, TrendingDown, Download, CheckCheck, Smartphone, QrCode as QrCode2, PiggyBank, BadgeDollarSign,
+  ClipboardCheck, Calculator, HardDriveDownload, KeyRound, Handshake, HandCoins, Scale, MonitorSmartphone,
   type LucideIcon,
 } from 'lucide-react';
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -26,6 +27,8 @@ export const ICONES = {
   carregando: Loader2, mais: Plus, excluir: Trash2, editar: Pencil, arquivar: Archive, ver: Eye, ocultar: EyeOff, imagem: Image, presente: Gift,
   repetir: Repeat, coracao: Heart, estrela: Star, raio: Zap, loja: Store, entrega: Truck, cadeado: Lock, seta: ArrowRight, dinheiro: Banknote,
   carteira: Wallet, predio: Building2, proibido: Ban, brilho: Sparkles,
+  crediario: HandCoins, convenios: Handshake, orcamentos: Calculator, comissoes: Percent, inventario: ClipboardCheck, cotacoes: Scale,
+  backup: HardDriveDownload, seguranca: KeyRound, terminal: MonitorSmartphone,
 } satisfies Record<string, LucideIcon>;
 
 export type NomeIcone = keyof typeof ICONES;

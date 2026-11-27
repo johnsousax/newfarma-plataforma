@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { db } from '@/server/db';
 import { executar, ErroNegocio } from '@/server/erros';
-import { entrar, sair, iniciarSessao, exigirUsuario, validarSenhaForte, limitarTaxa, ipAtual } from '@/server/auth';
+import { entrar, sair, iniciarSessao, exigirUsuario, validarSenhaForte, limitarTaxa, ipAtual, concluirSegundoFator } from '@/server/auth';
 import { mesclarCarrinhoVisitante } from '@/server/carrinho';
 import { hashSenha, cifrar, indiceCpf, verificarSenha } from '@/server/cripto';
 import { auditar } from '@/server/auditoria';
@@ -20,6 +20,20 @@ export async function entrarAcao(_: unknown, form: FormData) {
   const r = await executar(async () => {
     const email = z.string().email('E-mail inválido').parse(String(form.get('email') ?? '').trim());
     const u = await entrar(email, String(form.get('senha') ?? ''));
+    if (u.mfaPendente) return { papel: u.papel, mfa: true };
+    await mesclarCarrinhoVisitante(u.id);
+    return { papel: u.papel, mfa: false };
+  });
+  if (!r.ok) return r;
+  const destino = destinoSeguro(form.get('voltar'), EQUIPE.includes(r.dados!.papel) ? '/admin' : '/conta');
+  if (r.dados!.mfa) redirect(`/entrar/codigo?voltar=${encodeURIComponent(destino)}`);
+  redirect(destino);
+}
+
+/** Segunda etapa do login: código do app autenticador (ou de recuperação). */
+export async function codigoLoginAcao(_: unknown, form: FormData) {
+  const r = await executar(async () => {
+    const u = await concluirSegundoFator(String(form.get('codigo') ?? '').trim().slice(0, 20));
     await mesclarCarrinhoVisitante(u.id);
     return u.papel;
   });

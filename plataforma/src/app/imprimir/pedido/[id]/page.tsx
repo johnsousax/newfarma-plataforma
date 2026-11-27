@@ -13,7 +13,7 @@ import { brl, dataHora } from '@/lib/formato';
 
 export const metadata = { title: 'Imprimir pedido', robots: { index: false } };
 
-const PAGAMENTO: Record<string, string> = { CARTAO_CREDITO: 'Cartão de crédito', CARTAO_DEBITO: 'Cartão de débito', PIX: 'Pix', DINHEIRO: 'Dinheiro' };
+const PAGAMENTO: Record<string, string> = { CARTAO_CREDITO: 'Cartão de crédito', CARTAO_DEBITO: 'Cartão de débito', PIX: 'Pix', DINHEIRO: 'Dinheiro', CREDIARIO: 'Crediário', CONVENIO: 'Convênio' };
 const mascaraCpf = (c: string) => c.replace(/\D/g, '').replace(/^(\d{3})\d{6}(\d{2})$/, '$1.***.***-$2');
 
 async function Comanda({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

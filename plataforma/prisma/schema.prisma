@@ -65,6 +65,10 @@ enum MetodoPagamento {
   CARTAO_DEBITO
   PIX
   DINHEIRO
+  /// Fiado: lançado na conta de crediário do cliente (só no balcão)
+  CREDIARIO
+  /// Compra pelo convênio da empresa do cliente (só no balcão)
+  CONVENIO
 }
 
 enum StatusPagamento {
@@ -187,6 +191,16 @@ model Usuario {
   criadoEm         DateTime  @default(now())
   atualizadoEm     DateTime  @updatedAt
 
+  /// Hash do telefone para localizar o cliente pelo WhatsApp
+  telefoneHash     String?
+  /// Segundo fator (TOTP, app autenticador)
+  totpSegredoCifrado String?
+  totpAtivoEm      DateTime?
+  totpUltimoPasso  Int?
+  codigosRecuperacao String[] @default([])
+  /// Comissão sobre as vendas em pontos-base (150 = 1,5%)
+  comissaoBp       Int       @default(0)
+
   sessoes      Sessao[]
   enderecos    Endereco[]
   pedidos      Pedido[]      @relation("PedidosCliente")
@@ -204,6 +218,7 @@ model Usuario {
   conversasAtendidas Conversa[] @relation("ConversasFarmaceutico")
 
   @@index([papel])
+  @@index([telefoneHash])
 }
 
 model Sessao {
@@ -215,8 +230,23 @@ model Sessao {
   ip        String?
   userAgent String?
   criadoEm  DateTime @default(now())
+  /// Login feito, falta o código do app autenticador
+  mfaPendente     Boolean   @default(false)
+  tentativasMfa   Int       @default(0)
+  /// Última confirmação do 2º fator (libera ações críticas por alguns minutos)
+  reautenticadoEm DateTime?
+  ultimoUsoEm     DateTime  @default(now())
 
   @@index([usuarioId])
+}
+
+/// Limite de tentativas compartilhado entre instâncias do servidor
+model LimiteTaxa {
+  chave    String   @id
+  contagem Int
+  expiraEm DateTime
+
+  @@index([expiraEm])
 }
 
 model Endereco {
@@ -545,6 +575,10 @@ model Pedido {
   entregueEm        DateTime?
   /// Valor repassado ao motoboy por esta entrega
   taxaMotoboy       Int?
+  /// Vendedor que atendeu (comissão); no balcão, padrão = operador do caixa
+  vendedorId        String?
+  contaCrediarioId  String?
+  convenioId        String?
   notas             NotaFiscal[]
   criadoEm          DateTime         @default(now())
   atualizadoEm      DateTime         @updatedAt
@@ -635,11 +669,14 @@ model Receita {
   observacao       String?
   avaliadoEm       DateTime?
   criadoEm         DateTime      @default(now())
+  /// SHA-256 do arquivo (detecta a mesma receita reenviada)
+  arquivoHash      String?
 
   escrituracoes Escrituracao[]
 
   @@index([status])
   @@index([pedidoId])
+  @@index([arquivoHash])
 }
 
 /// Livro de escrituração (base para transmissão ao SNGPC)
@@ -947,6 +984,7 @@ model Motoboy {
   ativo          Boolean   @default(true)
   /// Link exclusivo do app do entregador (não exige login)
   token          String    @unique
+  tokenExpiraEm  DateTime?
   latitude       Float?
   longitude      Float?
   posicaoEm      DateTime?
@@ -1161,4 +1199,183 @@ model OcorrenciaFuncionario {
   criadoEm      DateTime    @default(now())
 
   @@index([funcionarioId, inicio])
+}
+
+// ─────────────── Crediário, convênios, orçamentos, inventário e cotação ───────────────
+
+/// Empresa conveniada: os funcionários dela compram e a empresa paga (ou desconta em folha)
+model Convenio {
+  id                 String           @id @default(uuid())
+  nome               String
+  cnpj               String?
+  contato            String?
+  telefone           String?
+  email              String?
+  /// Desconto do convênio em pontos-base (500 = 5%)
+  descontoBp         Int              @default(0)
+  /// Dia do mês em que a fatura do convênio fecha
+  diaFechamento      Int              @default(25)
+  prazoPagamentoDias Int              @default(10)
+  limitePadrao       Int              @default(30000)
+  ativo              Boolean          @default(true)
+  criadoEm           DateTime         @default(now())
+  contas             ContaCrediario[]
+}
+
+/// Conta de crediário (fiado) de um cliente — própria ou de um conveniado
+model ContaCrediario {
+  id            String               @id @default(uuid())
+  nome          String
+  cpfHash       String?              @unique
+  cpfFinal      String?
+  telefone      String?
+  usuarioId     String?
+  convenioId    String?
+  convenio      Convenio?            @relation(fields: [convenioId], references: [id])
+  matricula     String?
+  limite        Int
+  /// Dia do mês em que as compras do crediário vencem
+  diaVencimento Int                  @default(10)
+  bloqueada     Boolean              @default(false)
+  ativa         Boolean              @default(true)
+  observacao    String?
+  ultimaCobrancaEm DateTime?
+  criadoEm      DateTime             @default(now())
+  movimentos    MovimentoCrediario[]
+
+  @@index([convenioId])
+}
+
+enum TipoMovCrediario {
+  COMPRA
+  PAGAMENTO
+  ESTORNO
+  AJUSTE
+}
+
+model MovimentoCrediario {
+  id             String           @id @default(uuid())
+  contaId        String
+  conta          ContaCrediario   @relation(fields: [contaId], references: [id], onDelete: Cascade)
+  tipo           TipoMovCrediario
+  /// Positivo aumenta a dívida (compra); negativo reduz (pagamento/estorno)
+  valor          Int
+  descricao      String
+  pedidoId       String?
+  vencimento     DateTime?
+  formaPagamento String?
+  usuarioId      String?
+  criadoEm       DateTime         @default(now())
+
+  @@index([contaId, criadoEm])
+}
+
+enum TipoOrcamento {
+  ORCAMENTO
+  PRE_VENDA
+}
+
+enum StatusOrcamento {
+  ABERTO
+  CONVERTIDO
+  CANCELADO
+}
+
+/// Orçamento para o cliente ou pré-venda montada no balcão para o caixa finalizar
+model Orcamento {
+  id           String          @id @default(uuid())
+  numero       Int             @unique @default(autoincrement())
+  tipo         TipoOrcamento   @default(PRE_VENDA)
+  status       StatusOrcamento @default(ABERTO)
+  lojaId       String
+  vendedorId   String
+  clienteNome  String?
+  telefone     String?
+  observacao   String?
+  /// [{ produtoId, nome, quantidade, preco }]
+  itens        Json
+  total        Int
+  validoAte    DateTime
+  pedidoId     String?
+  criadoEm     DateTime        @default(now())
+  atualizadoEm DateTime        @updatedAt
+
+  @@index([lojaId, status])
+}
+
+enum StatusInventario {
+  ABERTO
+  FECHADO
+  CANCELADO
+}
+
+/// Inventário (balanço): fotografa os lotes, recebe a contagem e acerta as diferenças
+model Inventario {
+  id           String           @id @default(uuid())
+  numero       Int              @unique @default(autoincrement())
+  lojaId       String
+  descricao    String
+  status       StatusInventario @default(ABERTO)
+  criadoPorId  String
+  fechadoPorId String?
+  abertoEm     DateTime         @default(now())
+  fechadoEm    DateTime?
+  itens        InventarioItem[]
+
+  @@index([lojaId, status])
+}
+
+model InventarioItem {
+  id           String     @id @default(uuid())
+  inventarioId String
+  inventario   Inventario @relation(fields: [inventarioId], references: [id], onDelete: Cascade)
+  produtoId    String
+  loteId       String
+  produtoNome  String
+  loteCodigo   String
+  validade     DateTime
+  esperado     Int
+  contado      Int?
+
+  @@unique([inventarioId, loteId])
+}
+
+enum StatusCotacao {
+  ABERTA
+  FECHADA
+  CANCELADA
+}
+
+/// Cotação de compra: mesmos itens com preço de vários fornecedores
+model Cotacao {
+  id          String        @id @default(uuid())
+  numero      Int           @unique @default(autoincrement())
+  lojaId      String
+  descricao   String
+  status      StatusCotacao @default(ABERTA)
+  criadoPorId String
+  criadoEm    DateTime      @default(now())
+  fechadaEm   DateTime?
+  itens       CotacaoItem[]
+}
+
+model CotacaoItem {
+  id          String         @id @default(uuid())
+  cotacaoId   String
+  cotacao     Cotacao        @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
+  produtoId   String
+  produtoNome String
+  quantidade  Int
+  precos      CotacaoPreco[]
+}
+
+model CotacaoPreco {
+  id            String      @id @default(uuid())
+  itemId        String
+  item          CotacaoItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  fornecedorId  String
+  custoUnitario Int
+  prazoDias     Int?
+
+  @@unique([itemId, fornecedorId])
 }

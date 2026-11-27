@@ -29,12 +29,14 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/admin'>['s
     db.receita.count({ where: { status: 'PENDENTE' } }),
     db.pedido.findMany({ where: loja ? { lojaId: loja } : {}, orderBy: { criadoEm: 'desc' }, take: 8, include: { loja: { select: { nome: true } } } }),
   ]);
+  const sem2fa = (u.papel === 'ADMIN' || u.papel === 'GERENTE') && !(await db.usuario.findUnique({ where: { id: u.id }, select: { totpAtivoEm: true } }))?.totpAtivoEm;
   const contAlertas = { RUPTURA: 0, REPOSICAO: 0, VENCIDO: 0, VENCENDO: 0 };
   for (const a of al) contAlertas[a.tipo]++;
 
   return (
     <div className="space-y-6">
       {sp.negado && <Aviso tipo="alerta">Seu perfil não tem acesso àquela área.</Aviso>}
+      {sem2fa && <Aviso tipo="alerta">Proteja sua conta: ative a <Link href="/admin/seguranca" className="link">verificação em duas etapas</Link> (código no celular além da senha).</Aviso>}
       <TituloPagina titulo={`Bom dia, ${u.nome.split(' ')[0]}`} subtitulo={loja ? 'Indicadores da sua loja' : 'Indicadores de toda a rede'} acoes={
         <div className="flex rounded-xl border border-slate-200 bg-white p-1 text-sm">
           {[7, 30, 90].map((d) => <Link key={d} href={`/admin?dias=${d}`} className={`rounded-lg px-3 py-1.5 ${d === dias ? 'bg-slate-900 font-semibold text-white' : 'text-slate-600'}`}>{d} dias</Link>)}

@@ -26,8 +26,22 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/admin/prod
     db.produto.findMany({ where, orderBy: { nome: 'asc' }, skip: (pagina - 1) * 40, take: 40, include: { marca: { select: { nome: true } }, categoria: { select: { nome: true } } } }),
   ]);
   const disp = await disponibilidade(produtos.map((p) => p.id));
+  // Pendências regulatórias: medicamento ativo sem registro MS, sem PMC ou com preço acima do PMC (CMED)
+  const pendencias = await db.$queryRaw<{ id: string; nome: string; motivo: string }[]>`
+    SELECT id, nome, CASE WHEN "registroAnvisa" IS NULL OR length(regexp_replace("registroAnvisa", '\D', '', 'g')) <> 13 THEN 'sem registro MS (13 dígitos)'
+      WHEN pmc IS NULL THEN 'sem PMC (CMED)' ELSE 'preço acima do PMC' END AS motivo
+    FROM "Produto" WHERE ativo AND classificacao <> 'NAO_MEDICAMENTO'
+      AND ("registroAnvisa" IS NULL OR length(regexp_replace("registroAnvisa", '\D', '', 'g')) <> 13 OR pmc IS NULL OR preco > pmc)
+    ORDER BY nome LIMIT 50`;
   return (
     <>
+      {pendencias.length > 0 && (
+        <details className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
+          <summary className="cursor-pointer font-semibold text-amber-900">{pendencias.length}{pendencias.length === 50 ? '+' : ''} medicamento(s) com pendência regulatória (registro MS / PMC da CMED)</summary>
+          <ul className="mt-2 space-y-1">{pendencias.map((x) => <li key={x.id}><Link href={`/admin/produtos/${x.id}`} className="hover:underline">{x.nome}</Link> — <span className="text-amber-800">{x.motivo}</span></li>)}</ul>
+          <p className="mt-2 text-xs text-amber-800">Medicamento não pode ser vendido acima do PMC. Ao salvar o produto, o sistema exige registro e PMC e bloqueia preço acima do teto.</p>
+        </details>
+      )}
       <form className="mb-4 flex flex-wrap gap-2">
         <input name="q" defaultValue={q} placeholder="Nome, princípio ativo, SKU ou EAN" className="campo max-w-sm" />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="inativos" value="1" defaultChecked={!!sp.inativos} /> Só inativos</label>

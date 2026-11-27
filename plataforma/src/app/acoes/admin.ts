@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { db } from '@/server/db';
 import { executar, ErroNegocio } from '@/server/erros';
-import { exigirPermissao, ipAtual, lojaDoUsuario } from '@/server/auth';
+import { exigirPermissao, ipAtual, lojaDoUsuario, exigirSegundoFatorRecente } from '@/server/auth';
 import { auditar } from '@/server/auditoria';
 import { avancarStatus, cancelarPedido } from '@/server/pedidos';
 import { avaliarReceita } from '@/server/receitas';
@@ -429,7 +429,9 @@ export async function finalizarVendaPdv(dados: unknown) {
       itens: z.array(z.object({ produtoId: uuid, quantidade: z.number().int().min(1).max(100) })).min(1).max(100),
       metodo: z.enum(MetodoPagamento), valorRecebido: z.number().int().min(0).optional(),
       cpf: z.string().transform((s) => s.replace(/\D/g, '')).optional(), receitaConferida: z.boolean().optional(), registroPrescritor: z.string().max(30).optional(),
+      vendedorId: uuid.optional(), contaCrediarioId: uuid.optional(), orcamentoId: uuid.optional(),
     }).parse(dados);
+    if (d.metodo === 'CREDIARIO' || d.metodo === 'CONVENIO') await exigirPermissao('venderCrediario');
     const r = await venderBalcao(u, { ...d, cpf: d.cpf || undefined });
     let nota: string | null = null;
     const { configuracoes } = await import('@/server/configuracoes');
@@ -466,6 +468,7 @@ export async function salvarMembroEquipe(_: unknown, form: FormData) {
   if (!p.success) return errosZod(p.error);
   return executar(async () => {
     const u = await exigirPermissao('equipe');
+    await exigirSegundoFatorRecente(u);
     const d = p.data;
     if (d.papel === 'FARMACEUTICO' && !/^CRF-[A-Z]{2}\s?\d{3,7}$/i.test(d.crf ?? '')) throw new ErroNegocio('Farmacêutico exige CRF válido (ex.: CRF-MA 12345).');
     const id = form.get('id') ? uuid.parse(form.get('id')) : null;
@@ -487,6 +490,7 @@ export async function salvarMembroEquipe(_: unknown, form: FormData) {
 export async function alternarAtivoUsuario(id: string) {
   return executar(async () => {
     const u = await exigirPermissao('equipe');
+    await exigirSegundoFatorRecente(u);
     if (id === u.id) throw new ErroNegocio('Você não pode desativar a si mesmo.');
     const alvo = await db.usuario.findUniqueOrThrow({ where: { id: uuid.parse(id) } });
     await db.usuario.update({ where: { id: alvo.id }, data: { ativo: !alvo.ativo } });
@@ -591,6 +595,7 @@ export async function removerChaveAnthropic() {
 export async function salvarPermissoesAcao(matriz: Record<string, string[]>) {
   return executar(async () => {
     const u = await exigirPermissao('configuracoes');
+    await exigirSegundoFatorRecente(u);
     const { salvarMatriz } = await import('@/server/permissoes');
     await salvarMatriz(z.record(z.string(), z.array(z.string())).parse(matriz), u.id);
     refresh();
@@ -600,6 +605,7 @@ export async function salvarPermissoesAcao(matriz: Record<string, string[]>) {
 export async function restaurarPermissoesAcao() {
   return executar(async () => {
     const u = await exigirPermissao('configuracoes');
+    await exigirSegundoFatorRecente(u);
     const { restaurarPadrao } = await import('@/server/permissoes');
     await restaurarPadrao(u.id);
     refresh();
@@ -733,6 +739,7 @@ export async function gerarNotaAcao(pedidoId: string) {
 export async function cancelarNotaAcao(id: string, justificativa?: string) {
   return executar(async () => {
     const u = await exigirPermissao('notas');
+    await exigirSegundoFatorRecente(u);
     const { cancelarNota } = await import('@/server/fiscal/nfce');
     await cancelarNota(uuid.parse(id), justificativa ?? '', u.id);
     refresh();

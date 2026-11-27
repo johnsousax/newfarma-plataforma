@@ -19,6 +19,8 @@ export const GRUPOS: Record<string, { rotulo: string; ordem: number; fora?: bool
   ESTOQUE: { rotulo: 'Compra de mercadorias (vai para o estoque)', ordem: 20, fora: true },
   INVESTIMENTO: { rotulo: 'Investimentos', ordem: 21, fora: true },
   RETIRADA_SOCIOS: { rotulo: 'Retirada dos sócios', ordem: 22, fora: true },
+  /** A venda já entrou na receita no dia da compra; aqui só o dinheiro chegando (fluxo de caixa). */
+  RECEBIMENTO_CREDIARIO: { rotulo: 'Recebimentos de crediário e convênios', ordem: 23, fora: true },
 };
 
 const PLANO: [string, TipoLancamento, string][] = [
@@ -103,7 +105,7 @@ export async function resumoFinanceiro(inicio: Date, fim: Date) {
     db.lancamento.findMany({ where: { status: 'PAGO', pagoEm: { gte: inicio, lt: fim } }, select: { tipo: true, valorPago: true, valor: true, pagoEm: true } }),
     db.lancamento.findMany({ where: { status: 'ABERTO', vencimento: { lt: em7 } }, orderBy: { vencimento: 'asc' }, take: 50, select: { id: true, tipo: true, descricao: true, valor: true, vencimento: true, pessoa: true, fornecedor: { select: { nomeFantasia: true } }, funcionario: { select: { nome: true } } } }),
     db.$queryRaw<{ id: string; nome: string; tipo: string; saldo: bigint }[]>`SELECT c.id, c.nome, c.tipo, c."saldoInicial" + COALESCE(SUM(CASE WHEN l.tipo = 'RECEITA' THEN COALESCE(l."valorPago", l.valor) ELSE -COALESCE(l."valorPago", l.valor) END) FILTER (WHERE l.status = 'PAGO'), 0) AS saldo FROM "ContaFinanceira" c LEFT JOIN "Lancamento" l ON l."contaId" = c.id WHERE c.ativa GROUP BY c.id ORDER BY c.nome`,
-    db.$queryRaw<{ dia: Date; total: bigint }[]>`SELECT date_trunc('day', "criadoEm" AT TIME ZONE 'America/Sao_Paulo') AS dia, SUM(total) AS total FROM "Pedido" WHERE status NOT IN ('CANCELADO','AGUARDANDO_PAGAMENTO','AGUARDANDO_RECEITA') AND "criadoEm" >= ${inicio} AND "criadoEm" < ${fim} GROUP BY 1`,
+    db.$queryRaw<{ dia: Date; total: bigint }[]>`SELECT date_trunc('day', "criadoEm" AT TIME ZONE 'America/Sao_Paulo') AS dia, SUM(total) AS total FROM "Pedido" WHERE status NOT IN ('CANCELADO','AGUARDANDO_PAGAMENTO','AGUARDANDO_RECEITA') AND ("metodoPagamento" IS NULL OR "metodoPagamento" NOT IN ('CREDIARIO','CONVENIO')) AND "criadoEm" >= ${inicio} AND "criadoEm" < ${fim} GROUP BY 1`,
   ]);
   const receitaVendas = (vendas._sum.subtotal ?? 0) + (vendas._sum.frete ?? 0);
   const descontos = (vendas._sum.descontoPromocoes ?? 0) + (vendas._sum.descontoCupom ?? 0);

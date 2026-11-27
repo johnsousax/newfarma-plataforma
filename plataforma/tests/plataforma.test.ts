@@ -57,11 +57,19 @@ describe('segurança e criptografia', () => {
     await auditar('teste.evento', { detalhes: { x: 1 } });
     expect((await verificarCadeia()).integra).toBe(true);
     const ultimo = await db.auditoria.findFirstOrThrow({ orderBy: { seq: 'desc' } });
-    await db.auditoria.update({ where: { seq: ultimo.seq }, data: { acao: 'teste.adulterado' } });
+    // 1ª barreira: o banco recusa alterar ou apagar a trilha
+    await expect(db.auditoria.update({ where: { seq: ultimo.seq }, data: { acao: 'teste.adulterado' } })).rejects.toThrow();
+    await expect(db.auditoria.delete({ where: { seq: ultimo.seq } })).rejects.toThrow();
+    // 2ª barreira: mesmo um superusuário que desligue as travas é pego pela cadeia de hashes
+    const adulterar = (acao: string) => db.$transaction([
+      db.$executeRawUnsafe(`SET LOCAL session_replication_role = replica`),
+      db.$executeRaw`UPDATE "Auditoria" SET acao = ${acao} WHERE seq = ${ultimo.seq}`,
+    ]);
+    await adulterar('teste.adulterado');
     const v = await verificarCadeia();
     expect(v.integra).toBe(false);
     expect(v.falhaEm).toBe(ultimo.seq);
-    await db.auditoria.update({ where: { seq: ultimo.seq }, data: { acao: 'teste.evento' } });
+    await adulterar('teste.evento');
   });
 });
 

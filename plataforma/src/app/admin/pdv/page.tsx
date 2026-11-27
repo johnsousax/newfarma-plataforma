@@ -7,7 +7,8 @@ import { Aviso, Esqueleto, TituloPagina, Badge } from '@/components/ui';
 import { FormAcao } from '@/components/admin/Acoes';
 import { Pdv } from '@/components/admin/Pdv';
 import { abrirCaixaAcao, fecharCaixaAcao, movimentarCaixaAcao } from '@/app/acoes/admin';
-import { METODO_PAGAMENTO, atuaComoFarmaceutico } from '@/lib/dominio';
+import { METODO_PAGAMENTO, atuaComoFarmaceutico, EQUIPE } from '@/lib/dominio';
+import { temPermissao } from '@/server/permissoes';
 import { brl, dataHora } from '@/lib/formato';
 
 export const metadata = { title: 'PDV' };
@@ -34,13 +35,17 @@ async function Conteudo() {
     );
   }
   const r = resumoCaixa(caixa);
+  const [vendedores, podeCrediario] = await Promise.all([
+    db.usuario.findMany({ where: { ativo: true, papel: { in: EQUIPE }, OR: [{ lojaId: caixa.lojaId }, { papel: 'ADMIN' }] }, orderBy: { nome: 'asc' }, select: { id: true, nome: true } }),
+    temPermissao(u.papel, 'venderCrediario'),
+  ]);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <Badge cor="emerald" className="px-3 py-1">● Caixa aberto · {caixa.loja.nome}</Badge>
         <span className="text-slate-500">desde {dataHora(caixa.abertoEm)} · vendas {brl(r.totalVendas)} · dinheiro na gaveta {brl(r.dinheiroEsperado)}</span>
       </div>
-      <Pdv farmaceutico={atuaComoFarmaceutico(u.papel)} />
+      <Pdv farmaceutico={atuaComoFarmaceutico(u.papel)} usuarioId={u.id} vendedores={vendedores} podeCrediario={podeCrediario} />
       <details className="cartao p-5">
         <summary className="cursor-pointer font-semibold">Sangria, suprimento e fechamento</summary>
         <div className="mt-4 grid gap-6 lg:grid-cols-3">
@@ -59,6 +64,7 @@ async function Conteudo() {
           </FormAcao>
         </div>
       </details>
+      <p className="text-xs text-slate-500">Pré-venda: o balconista monta em <a href="/admin/orcamentos/novo" className="link">Orçamentos › Nova pré-venda</a> e você carrega pelo número acima. Terminal de consulta de preço para o cliente: abra <a href="/consulta-preco" target="_blank" className="link">/consulta-preco</a> num tablet ou computador com leitor de código de barras.</p>
     </div>
   );
 }

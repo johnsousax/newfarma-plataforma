@@ -173,7 +173,7 @@ const BULA_PADRAO = {
 
 // Limpa SOMENTE as tabelas do schema da aplicação (nunca o banco inteiro: no Supabase o
 // banco é compartilhado com outros projetos). Só as tabelas que o Prisma conhece são afetadas.
-const TABELAS_DA_APP = new Set(['ZonaEntrega', 'Motoboy', 'Loja', 'Usuario', 'Sessao', 'Endereco', 'Categoria', 'Marca', 'Produto', 'HistoricoPreco', 'Avaliacao', 'Favorito', 'Banner', 'Promocao', 'Cupom', 'Lote', 'MovimentoEstoque', 'Carrinho', 'CarrinhoItem', 'Pedido', 'PedidoItem', 'PedidoEvento', 'Pagamento', 'Receita', 'Escrituracao', 'Assinatura', 'Lembrete', 'MovimentoPontos', 'Fornecedor', 'PedidoCompra', 'PedidoCompraItem', 'CaixaSessao', 'CaixaMovimento', 'Auditoria', 'TokenSenha', 'ImagemProduto', 'Conversa', 'Mensagem', '_PromocaoProdutos']);
+const TABELAS_DA_APP = new Set(['ZonaEntrega', 'Motoboy', 'Loja', 'Usuario', 'Sessao', 'Endereco', 'Categoria', 'Marca', 'Produto', 'HistoricoPreco', 'Avaliacao', 'Favorito', 'Banner', 'Promocao', 'Cupom', 'Lote', 'MovimentoEstoque', 'Carrinho', 'CarrinhoItem', 'Pedido', 'PedidoItem', 'PedidoEvento', 'Pagamento', 'Receita', 'Escrituracao', 'Assinatura', 'Lembrete', 'MovimentoPontos', 'Fornecedor', 'PedidoCompra', 'PedidoCompraItem', 'CaixaSessao', 'CaixaMovimento', 'Auditoria', 'TokenSenha', 'ImagemProduto', 'Conversa', 'Mensagem', '_PromocaoProdutos', 'Convenio', 'ContaCrediario', 'MovimentoCrediario', 'Orcamento', 'Inventario', 'InventarioItem', 'Cotacao', 'CotacaoItem', 'CotacaoPreco', 'LimiteTaxa']);
 
 async function limpar() {
   if (process.env.NODE_ENV === 'production' && process.env.PERMITIR_SEED_DEMO !== '1') throw new Error('Seed de demonstração bloqueado em produção (defina PERMITIR_SEED_DEMO=1 conscientemente).');
@@ -181,7 +181,11 @@ async function limpar() {
   const tabelas = (await db.$queryRaw<{ tablename: string }[]>`SELECT tablename FROM pg_tables WHERE schemaname = current_schema()`).map((t) => t.tablename).filter((t) => TABELAS_DA_APP.has(t));
   if (!tabelas.length) return;
   console.log(`   schema "${schema}": ${tabelas.length} tabelas`);
-  await db.$executeRawUnsafe(`TRUNCATE ${tabelas.map((t) => `"${schema}"."${t}"`).join(', ')} RESTART IDENTITY CASCADE`);
+  // Auditoria e escrituração têm gatilhos que impedem apagar; só o seed local (superusuário) os desliga nesta transação.
+  await db.$transaction([
+    db.$executeRawUnsafe(`SET LOCAL session_replication_role = replica`),
+    db.$executeRawUnsafe(`TRUNCATE ${tabelas.map((t) => `"${schema}"."${t}"`).join(', ')} RESTART IDENTITY CASCADE`),
+  ]);
 }
 
 /** Bairros de São Luís/MA a partir do Sol e Mar: [bairro, taxa em centavos, prazo em minutos]. Valores próximos aos do Zé Brocado. */

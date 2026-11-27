@@ -4,7 +4,8 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { db } from './db';
 import { config } from './config';
-import { hashSenha, verificarSenha, sha256, tokenAleatorio } from './cripto';
+import { hashSenha, verificarSenha, sha256, tokenAleatorio, decifrar } from './cripto';
+import { verificarTotp, hashRecuperacao, JANELA_REAUTENTICACAO_MIN } from './dois-fatores';
 import { ErroNegocio } from './erros';
 import { auditar } from './auditoria';
 import { EQUIPE, type Permissao } from '@/lib/dominio';
@@ -35,11 +36,12 @@ export function validarSenhaForte(senha: string) {
   }
 }
 
-async function criarSessao(usuarioId: string) {
+async function criarSessao(usuarioId: string, mfaPendente = false) {
   const token = tokenAleatorio();
-  const expiraEm = new Date(Date.now() + config.sessaoDias * 86_400_000);
+  // Sessão aguardando o código do app autenticador vale só 10 minutos
+  const expiraEm = new Date(Date.now() + (mfaPendente ? 10 * 60_000 : config.sessaoDias * 86_400_000));
   const h = await headers();
-  await db.sessao.create({ data: { tokenHash: sha256(token), usuarioId, expiraEm, ip: await ipAtual(), userAgent: h.get('user-agent')?.slice(0, 200) } });
+  await db.sessao.create({ data: { tokenHash: sha256(token), usuarioId, expiraEm, mfaPendente, ip: await ipAtual(), userAgent: h.get('user-agent')?.slice(0, 200) } });
   (await cookies()).set(COOKIE_SESSAO, token, { httpOnly: true, secure: config.producao, sameSite: 'lax', path: '/', expires: expiraEm });
 }
 
@@ -59,9 +61,65 @@ export async function entrar(email: string, senha: string) {
     throw new ErroNegocio('E-mail ou senha inválidos.', 401);
   }
   await db.usuario.update({ where: { id: u.id }, data: { tentativasFalhas: 0, bloqueadoAte: null } });
-  await criarSessao(u.id);
-  await auditar('login.sucesso', { usuarioId: u.id, ip });
-  return u;
+  const mfa = !!u.totpAtivoEm && !!u.totpSegredoCifrado;
+  await criarSessao(u.id, mfa);
+  await auditar(mfa ? 'login.senha_ok_aguarda_2fa' : 'login.sucesso', { usuarioId: u.id, ip });
+  return { ...u, mfaPendente: mfa };
+}
+
+/** Sessão que passou pela senha e aguarda o código do app autenticador. */
+export async function sessaoAguardandoCodigo() {
+  const token = (await cookies()).get(COOKIE_SESSAO)?.value;
+  if (!token) return null;
+  const s = await db.sessao.findUnique({ where: { tokenHash: sha256(token) }, include: { usuario: { select: { id: true, papel: true, email: true, totpSegredoCifrado: true, totpUltimoPasso: true, codigosRecuperacao: true } } } });
+  if (!s || !s.mfaPendente || s.expiraEm < new Date()) return null;
+  return s;
+}
+
+/** Confere um código do app (ou de recuperação) para o usuário; devolve true e consome o código. */
+export async function conferirSegundoFator(usuarioId: string, codigo: string) {
+  const u = await db.usuario.findUnique({ where: { id: usuarioId }, select: { totpSegredoCifrado: true, totpUltimoPasso: true, codigosRecuperacao: true } });
+  if (!u?.totpSegredoCifrado) return false;
+  const segredo = decifrar(u.totpSegredoCifrado);
+  const passo = segredo ? verificarTotp(segredo, codigo, u.totpUltimoPasso) : null;
+  if (passo != null) {
+    await db.usuario.update({ where: { id: usuarioId }, data: { totpUltimoPasso: passo } });
+    return true;
+  }
+  const h = hashRecuperacao(codigo);
+  if (/[a-z]/i.test(codigo) && (u.codigosRecuperacao ?? []).includes(h)) {
+    await db.usuario.update({ where: { id: usuarioId }, data: { codigosRecuperacao: (u.codigosRecuperacao ?? []).filter((x) => x !== h) } });
+    await auditar('2fa.codigo_recuperacao_usado', { usuarioId });
+    return true;
+  }
+  return false;
+}
+
+/** Conclui o login com o código do app autenticador. */
+export async function concluirSegundoFator(codigo: string) {
+  const s = await sessaoAguardandoCodigo();
+  if (!s) throw new ErroNegocio('Sua verificação expirou. Entre novamente com e-mail e senha.', 401);
+  limitarTaxa(`2fa:${s.usuarioId}`, 10, 10 * 60_000);
+  if (!(await conferirSegundoFator(s.usuarioId, codigo))) {
+    const n = s.tentativasMfa + 1;
+    if (n >= 5) {
+      await db.sessao.delete({ where: { id: s.id } });
+      (await cookies()).delete(COOKIE_SESSAO);
+      await auditar('2fa.bloqueado', { usuarioId: s.usuarioId, ip: await ipAtual() });
+      throw new ErroNegocio('Muitos códigos errados. Entre novamente com e-mail e senha.', 401);
+    }
+    await db.sessao.update({ where: { id: s.id }, data: { tentativasMfa: n } });
+    await auditar('2fa.falha', { usuarioId: s.usuarioId, ip: await ipAtual() });
+    throw new ErroNegocio('Código inválido. Confira o app autenticador e tente de novo.');
+  }
+  // Troca o token (evita fixação de sessão) e libera o acesso completo
+  await db.sessao.delete({ where: { id: s.id } });
+  await criarSessao(s.usuarioId);
+  const jar = await cookies();
+  const novo = jar.get(COOKIE_SESSAO)?.value;
+  if (novo) await db.sessao.update({ where: { tokenHash: sha256(novo) }, data: { reautenticadoEm: new Date() } });
+  await auditar('login.sucesso', { usuarioId: s.usuarioId, ip: await ipAtual(), detalhes: { segundoFator: true } });
+  return s.usuario;
 }
 
 export async function iniciarSessao(usuarioId: string) {
@@ -83,9 +141,29 @@ export const usuarioAtual = cache(async () => {
     where: { tokenHash: sha256(token) },
     include: { usuario: { select: { id: true, nome: true, email: true, papel: true, lojaId: true, crf: true, pontos: true, ativo: true, telefone: true } } },
   });
-  if (!s || s.expiraEm < new Date() || !s.usuario.ativo) return null;
+  if (!s || s.mfaPendente || s.expiraEm < new Date() || !s.usuario.ativo) return null;
   return s.usuario;
 });
+
+/**
+ * Ações críticas (backup, permissões, cancelar nota): quem tem o 2º fator ativo precisa
+ * ter confirmado um código nos últimos minutos.
+ */
+export async function exigirSegundoFatorRecente(u: { id: string }) {
+  const dono = await db.usuario.findUnique({ where: { id: u.id }, select: { totpAtivoEm: true } });
+  if (!dono?.totpAtivoEm) return;
+  const token = (await cookies()).get(COOKIE_SESSAO)?.value;
+  const s = token ? await db.sessao.findUnique({ where: { tokenHash: sha256(token) }, select: { reautenticadoEm: true } }) : null;
+  if (!s?.reautenticadoEm || Date.now() - s.reautenticadoEm.getTime() > JANELA_REAUTENTICACAO_MIN * 60_000) {
+    throw new ErroNegocio('Ação protegida: confirme o código do app autenticador (Painel › Segurança) e tente de novo.', 403);
+  }
+}
+
+/** Registra que o usuário acabou de confirmar o 2º fator nesta sessão. */
+export async function marcarReautenticado() {
+  const token = (await cookies()).get(COOKIE_SESSAO)?.value;
+  if (token) await db.sessao.update({ where: { tokenHash: sha256(token) }, data: { reautenticadoEm: new Date() } });
+}
 
 export type UsuarioSessao = NonNullable<Awaited<ReturnType<typeof usuarioAtual>>>;
 

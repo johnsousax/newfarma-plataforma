@@ -1,4 +1,5 @@
 import 'server-only';
+import { estornarCompraDoPedido } from './crediario';
 import { db, type Tx } from './db';
 import { config } from './config';
 import { ErroNegocio } from './erros';
@@ -211,6 +212,7 @@ export async function cancelarPedido(pedidoId: string, motivo: string, quem: { u
       throw new ErroNegocio('Pedido já separado: o estoque foi baixado. Registre uma devolução em vez de cancelar.');
     }
     await liberar(tx, pedido.lojaId, pedido.itens, { pedidoId: pedido.id, usuarioId: u?.id });
+    await estornarCompraDoPedido(tx, pedido.id, u?.id ?? null);
     for (const pg of pedido.pagamentos) {
       if (pg.status === 'APROVADO') await tx.pagamento.update({ where: { id: pg.id }, data: { status: 'ESTORNADO' } });
       if (pg.status === 'PENDENTE') await tx.pagamento.update({ where: { id: pg.id }, data: { status: 'EXPIRADO' } });

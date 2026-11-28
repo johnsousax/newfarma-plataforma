@@ -92,6 +92,7 @@ export const PERMISSOES = {
   comissoes: ['ADMIN'],
   inventario: ['FARMACEUTICO', 'GERENTE', 'ADMIN'],
   backup: ['ADMIN'],
+  notasEntrada: ['FARMACEUTICO', 'GERENTE', 'ADMIN'],
 } as const satisfies Record<string, Papel[]>;
 
 export type Permissao = keyof typeof PERMISSOES;
@@ -127,6 +128,7 @@ export const DESCRICAO_PERMISSAO: Record<Permissao, string> = {
   comissoes: 'Comissões dos vendedores',
   inventario: 'Inventário (balanço) do estoque',
   backup: 'Baixar cópia de segurança dos dados',
+  notasEntrada: 'Dar entrada de notas fiscais de compra (XML / chave) no estoque',
 };
 
 /** Verificação com a matriz padrão (uso em testes e fora de requisição). No servidor use temPermissao(). */

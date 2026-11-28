@@ -20,7 +20,7 @@ async function Conteudo({ searchParams }: { searchParams: PageProps<'/admin/audi
   const nomes = new Map((await db.usuario.findMany({ where: { id: { in: ids } }, select: { id: true, nome: true } })).map((u) => [u.id, u.nome]));
   return (
     <div className="space-y-4">
-      {cadeia.integra ? <Aviso tipo="sucesso">Cadeia íntegra: {cadeia.total} registros verificados por hash encadeado (SHA-256). Nenhuma adulteração detectada.</Aviso> : <Aviso tipo="erro">Cadeia QUEBRADA no registro #{cadeia.falhaEm}: o histórico foi alterado fora do sistema. Acione a segurança.</Aviso>}
+      {cadeia.integra ? <Aviso tipo="sucesso">Cadeia íntegra: {cadeia.total} registros verificados por hash encadeado (SHA-256). Nenhuma adulteração detectada.{cadeia.naoConferidos ? ` ${cadeia.naoConferidos} registro(s) antigos (antes de 27/11/2026) têm o encadeamento conferido, mas não o conteúdo (formato antigo do hash, já corrigido); a tabela é protegida contra alterações no banco.` : ''}</Aviso> : <Aviso tipo="erro">Cadeia QUEBRADA no registro #{cadeia.falhaEm}: o histórico foi alterado fora do sistema. Acione a segurança.</Aviso>}
       <form className="flex gap-2"><input name="acao" defaultValue={acao} placeholder="Filtrar por ação (ex.: receita, login, pedido)" className="campo max-w-sm" /><button className="rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white">Filtrar</button></form>
       <div className="cartao overflow-x-auto">
         <table className="tabela">

@@ -189,6 +189,8 @@ export async function lancarComissoes(u: UsuarioSessao, inicio: Date, fim: Date,
   if (!lista.length) throw new ErroNegocio('Nenhuma comissão a lançar neste período.');
   const ja = await db.lancamento.count({ where: { origem: 'comissao', documento: rotulo, status: { not: 'CANCELADO' } } });
   if (ja) throw new ErroNegocio(`As comissões de ${rotulo} já foram lançadas no financeiro.`);
+  const { garantirPlanoPadrao } = await import('../financeiro');
+  await garantirPlanoPadrao();
   const cat = await db.categoriaFinanceira.upsert({ where: { nome_tipo: { nome: 'Comissões de vendas', tipo: 'DESPESA' } }, create: { nome: 'Comissões de vendas', tipo: 'DESPESA', grupo: 'PESSOAL' }, update: {} });
   const funcs = await db.funcionario.findMany({ where: { usuarioId: { in: lista.map((c) => c.id) } }, select: { id: true, usuarioId: true } });
   const venc = new Date(fim.getTime() + 5 * 86_400_000);

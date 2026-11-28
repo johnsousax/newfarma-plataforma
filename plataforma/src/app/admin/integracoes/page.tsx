@@ -5,6 +5,7 @@ import { situacaoIntegracoes, pagamentosSimulados } from '@/server/integracoes';
 import { Aviso, Badge, Esqueleto, TituloPagina } from '@/components/ui';
 import { BotaoAcao, FormAcao } from '@/components/admin/Acoes';
 import { salvarChaveAnthropic, removerChaveAnthropic } from '@/app/acoes/admin';
+import { salvarTokenFocusAcao, removerTokenFocusAcao } from '@/app/acoes/gestao';
 import { dataHora } from '@/lib/formato';
 import { Icone } from '@/components/icones';
 
@@ -13,7 +14,9 @@ export const metadata = { title: 'Integrações' };
 async function Conteudo() {
   await connection();
   await paginaAdmin('lojas');
-  const [anthropic] = await situacaoIntegracoes();
+  const situacao = await situacaoIntegracoes();
+  const [anthropic] = situacao;
+  const focus = situacao.find((x) => x.chave === 'FOCUSNFE_TOKEN')!;
   const getnet = ['GETNET_CLIENT_ID', 'GETNET_CLIENT_SECRET', 'GETNET_SELLER_ID'].every((k) => !!process.env[k]);
   return (
     <div className="max-w-3xl space-y-6">
@@ -34,6 +37,23 @@ async function Conteudo() {
         </FormAcao>
         {anthropic.origem === 'painel' && <BotaoAcao variante="perigo" confirmar="Remover a chave? O assistente passa a encaminhar tudo ao farmacêutico." acao={removerChaveAnthropic}>Remover chave</BotaoAcao>}
         <p className="text-xs text-slate-500">Custo estimado: US$ 0,01 a 0,02 por pergunta com foto. Defina um limite de gastos mensal no painel da Anthropic (Settings › Limits).</p>
+      </section>
+
+      <section className="cartao space-y-3 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-lg font-bold"><Icone nome="notas" className="h-5 w-5 text-marca-600" />Notas de compra pela chave — Focus NFe</h2>
+          {focus.origem ? <Badge cor="emerald">Ligado · termina em …{focus.final}</Badge> : <Badge cor="amber">Não configurado</Badge>}
+        </div>
+        <p className="text-sm text-slate-700">Com isto ligado, bipar o código de barras do DANFE em <strong>Entrada de nota</strong> baixa o XML direto da SEFAZ. Sem isto, basta enviar o arquivo XML que o distribuidor manda.</p>
+        <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-700">
+          <li>Tenha o <strong>certificado digital A1</strong> da farmácia (o mesmo da NFC-e; o contador costuma providenciar).</li>
+          <li>Crie a conta na <a href="https://focusnfe.com.br" target="_blank" rel="noopener noreferrer" className="link">Focus NFe</a>, cadastre a empresa com o certificado e ative <em>NF-e recebidas / manifestação</em>.</li>
+          <li>Copie o <strong>token</strong> da empresa e cole abaixo. Ele fica cifrado no banco. O ambiente (homologação ou produção) segue Configurações › Fiscal.</li>
+        </ol>
+        <FormAcao acao={salvarTokenFocusAcao} rotulo={focus.origem ? 'Trocar token' : 'Salvar token'} className="space-y-3">
+          <input name="token" type="password" autoComplete="off" spellCheck={false} placeholder="Token da empresa na Focus NFe" required className="campo font-mono" />
+        </FormAcao>
+        {focus.origem === 'painel' && <BotaoAcao variante="perigo" confirmar="Remover o token? A busca pela chave deixa de funcionar." acao={removerTokenFocusAcao}>Remover token</BotaoAcao>}
       </section>
 
       <section className="cartao space-y-3 p-6">

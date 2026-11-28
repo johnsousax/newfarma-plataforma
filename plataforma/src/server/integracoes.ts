@@ -9,6 +9,7 @@ export const INTEGRACOES = {
   EVOLUTION_URL: { nome: 'WhatsApp · endereço do servidor Evolution API', formato: /^https:\/\/[\w.-]+(:\d+)?(\/[\w./-]*)?$/ },
   EVOLUTION_API_KEY: { nome: 'WhatsApp · chave da Evolution API', formato: /^\S{10,200}$/ },
   WHATSAPP_WEBHOOK_TOKEN: { nome: 'WhatsApp · token interno do webhook', formato: /^[\w-]{24,}$/ },
+  FOCUSNFE_TOKEN: { nome: 'Notas fiscais · token da Focus NFe (baixar notas de compra pela chave)', formato: /^[A-Za-z0-9]{20,80}$/ },
 } as const;
 export type ChaveIntegracao = keyof typeof INTEGRACOES;
 

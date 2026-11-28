@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { db } from '@/server/db';
 import { executar, ErroNegocio } from '@/server/erros';
-import { exigirPermissao, exigirUsuario, lojaDoUsuario, conferirSegundoFator, marcarReautenticado, limitarTaxa } from '@/server/auth';
+import { exigirPermissao, exigirUsuario, lojaDoUsuario, conferirSegundoFator, marcarReautenticado, limitarTaxa, exigirSegundoFatorRecente } from '@/server/auth';
 import { auditar } from '@/server/auditoria';
 import { cifrar, decifrar, indiceCpf } from '@/server/cripto';
 import { gerarSegredo, linkOtpauth, verificarTotp, gerarCodigosRecuperacao } from '@/server/dois-fatores';
@@ -331,4 +331,93 @@ export async function novosCodigosRecuperacaoAcao(_: unknown, form: FormData) {
     await auditar('2fa.novos_codigos', { usuarioId: u.id });
     return codigos;
   }, 'Novos códigos gerados. Os antigos deixaram de valer.');
+}
+
+// ─────────────── Entrada de nota fiscal de compra ───────────────
+
+export async function biparChaveNotaAcao(chave: string) {
+  const r = await executar(async () => {
+    const u = await exigirPermissao('notasEntrada');
+    const { biparChave } = await import('@/server/compras/entrada-nota');
+    return biparChave(u, String(chave ?? '').slice(0, 60));
+  });
+  if (r.ok && r.dados && r.dados.tipo !== 'precisa_xml') redirect(`/admin/entrada-nota/${r.dados.id}`);
+  return r;
+}
+
+export async function importarXmlNotaAcao(_: unknown, form: FormData) {
+  const r = await executar(async () => {
+    const u = await exigirPermissao('notasEntrada');
+    const { importarXml } = await import('@/server/compras/entrada-nota');
+    const arquivos = form.getAll('xml').filter((f): f is File => f instanceof File && f.size > 0).slice(0, 20);
+    if (!arquivos.length) throw new ErroNegocio('Escolha o arquivo XML da nota.');
+    const chave = String(form.get('chave') ?? '').replace(/\D/g, '');
+    const feitos: { id: string; numero: number; repetida: boolean }[] = [];
+    const erros: string[] = [];
+    for (const f of arquivos) {
+      if (f.size > 3 * 1024 * 1024) { erros.push(`${f.name}: arquivo acima de 3 MB.`); continue; }
+      const texto = await f.text();
+      try { feitos.push(await importarXml(u, texto, 'xml', chave.length === 44 && arquivos.length === 1 ? chave : undefined)); } catch (e) { erros.push(`${f.name}: ${(e as Error).message}`); }
+    }
+    if (!feitos.length) throw new ErroNegocio(erros.join(' '));
+    return { feitos, erros };
+  });
+  if (r.ok && r.dados?.feitos.length === 1 && !r.dados.erros.length) redirect(`/admin/entrada-nota/${r.dados.feitos[0].id}`);
+  if (r.ok) refresh();
+  return r.ok && r.dados ? { ...r, mensagem: `${r.dados.feitos.length} nota(s) importada(s)${r.dados.feitos.some((x) => x.repetida) ? ' (algumas já estavam no sistema)' : ''}.${r.dados.erros.length ? ` Problemas: ${r.dados.erros.join(' ')}` : ''}` } : r;
+}
+
+export async function ajustarItemNotaAcao(notaId: string, n: number, dados: unknown) {
+  return executar(async () => {
+    await exigirPermissao('notasEntrada');
+    const d = z.object({
+      produtoId: uuid.nullable().optional(), fator: z.number().int().min(1).max(1000).optional(), ignorar: z.boolean().optional(),
+      lotes: z.array(z.object({ codigo: z.string().max(40), quantidade: z.number().min(0).max(1_000_000), validade: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable() })).max(50).optional(),
+    }).parse(dados);
+    const { ajustarItem } = await import('@/server/compras/entrada-nota');
+    await ajustarItem(uuid.parse(notaId), z.number().int().min(1).parse(n), d);
+    refresh();
+  }, 'Item atualizado');
+}
+
+export async function lancarNotaAcao(notaId: string, compraId?: string) {
+  const r = await executar(async () => {
+    const u = await exigirPermissao('notasEntrada');
+    const { lancarNota } = await import('@/server/compras/entrada-nota');
+    const res = await lancarNota(u, uuid.parse(notaId), compraId ? uuid.parse(compraId) : null);
+    refresh();
+    return res;
+  });
+  return r.ok && r.dados ? { ...r, mensagem: `Entrada feita: ${r.dados.itens} item(ns), ${r.dados.unidades} unidade(s) no estoque e ${r.dados.parcelas} conta(s) a pagar no Financeiro.` } : r;
+}
+
+export async function descartarNotaAcao(notaId: string) {
+  return executar(async () => {
+    const u = await exigirPermissao('notasEntrada');
+    const { descartarNota } = await import('@/server/compras/entrada-nota');
+    await descartarNota(u, uuid.parse(notaId));
+    refresh();
+  }, 'Nota descartada');
+}
+
+export async function salvarTokenFocusAcao(_: unknown, form: FormData) {
+  return executar(async () => {
+    const u = await exigirPermissao('lojas');
+    await exigirSegundoFatorRecente(u);
+    const { INTEGRACOES, salvarSegredo } = await import('@/server/integracoes');
+    const token = String(form.get('token') ?? '').trim();
+    if (!INTEGRACOES.FOCUSNFE_TOKEN.formato.test(token)) throw new ErroNegocio('Token inválido. Copie o token da empresa no painel da Focus NFe.');
+    await salvarSegredo('FOCUSNFE_TOKEN', token, u.id);
+    refresh();
+  }, 'Token salvo. Bipar a chave da nota já busca o XML na SEFAZ.');
+}
+
+export async function removerTokenFocusAcao() {
+  return executar(async () => {
+    const u = await exigirPermissao('lojas');
+    await exigirSegundoFatorRecente(u);
+    const { removerSegredo } = await import('@/server/integracoes');
+    await removerSegredo('FOCUSNFE_TOKEN', u.id);
+    refresh();
+  }, 'Token removido');
 }

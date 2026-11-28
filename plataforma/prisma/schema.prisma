@@ -846,6 +846,8 @@ model Auditoria {
   alvo         String?
   ip           String?
   detalhes     Json?
+  /// 1 = hash com a ordem original das chaves (antigo); 2 = JSON canônico (chaves ordenadas)
+  versaoHash   Int      @default(1)
   hashAnterior String
   hash         String
   criadoEm     DateTime @default(now())
@@ -1378,4 +1380,54 @@ model CotacaoPreco {
   prazoDias     Int?
 
   @@unique([itemId, fornecedorId])
+}
+
+// ─────────────── Entrada de nota fiscal de compra (NF-e) ───────────────
+
+enum StatusNotaEntrada {
+  PENDENTE
+  LANCADA
+  DESCARTADA
+}
+
+/// NF-e de compra importada pelo XML (ou baixada pela chave): confere e dá entrada no estoque
+model NotaEntrada {
+  id           String            @id @default(uuid())
+  /// Chave de acesso de 44 dígitos (código de barras do DANFE)
+  chave        String            @unique
+  numero       Int
+  serie        Int
+  emitidaEm    DateTime
+  fornecedorId String
+  lojaId       String
+  emitenteCnpj String
+  emitenteNome String
+  destCnpj     String?
+  valorTotal   Int
+  autorizada   Boolean           @default(false)
+  status       StatusNotaEntrada @default(PENDENTE)
+  /// Itens lidos do XML, com o vínculo ao produto e os lotes: ver ItemNotaEntrada em server/compras
+  itens        Json
+  duplicatas   Json
+  xml          String
+  origem       String            @default("xml")
+  compraId     String?
+  importadaPorId String
+  lancadaPorId String?
+  lancadaEm    DateTime?
+  criadoEm     DateTime          @default(now())
+
+  @@index([status, criadoEm])
+}
+
+/// Memória de vínculo: o código que o fornecedor usa na nota → nosso produto (e quantas unidades vêm em cada)
+model CodigoFornecedor {
+  id           String   @id @default(uuid())
+  fornecedorId String
+  codigo       String
+  produtoId    String
+  fator        Int      @default(1)
+  atualizadoEm DateTime @updatedAt
+
+  @@unique([fornecedorId, codigo])
 }

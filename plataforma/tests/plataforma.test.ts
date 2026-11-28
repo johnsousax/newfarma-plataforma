@@ -53,6 +53,11 @@ describe('segurança e criptografia', () => {
     expect(validarDadosPagamento({ metodo: 'CARTAO_CREDITO', token: 'tok_abcdefgh1234', bandeira: 'Visa', final: '1111', parcelas: 2 }).metodo).toBe('CARTAO_CREDITO');
   });
 
+  it('auditoria continua íntegra com detalhes em qualquer ordem de chaves (jsonb reordena)', async () => {
+    await auditar('teste.ordem', { detalhes: { zeta: 1, alfa: { y: 2, b: [3, { k: 'v', a: null }] }, meio: new Date('2026-01-01T00:00:00Z').toISOString(), longaChave: true } });
+    expect((await verificarCadeia()).integra).toBe(true);
+  });
+
   it('auditoria encadeada detecta adulteração direta no banco', async () => {
     await auditar('teste.evento', { detalhes: { x: 1 } });
     expect((await verificarCadeia()).integra).toBe(true);

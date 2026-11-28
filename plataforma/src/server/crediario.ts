@@ -115,6 +115,8 @@ export async function estornarCompraDoPedido(tx: Tx, pedidoId: string, usuarioId
 }
 
 async function categoriaRecebimento() {
+  const { garantirPlanoPadrao } = await import('./financeiro');
+  await garantirPlanoPadrao();
   return db.categoriaFinanceira.upsert({
     where: { nome_tipo: { nome: 'Recebimento de crediário e convênios', tipo: 'RECEITA' } },
     create: { nome: 'Recebimento de crediário e convênios', tipo: 'RECEITA', grupo: 'RECEBIMENTO_CREDIARIO' },

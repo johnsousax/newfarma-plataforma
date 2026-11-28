@@ -25,6 +25,7 @@ const ITENS: (Omit<ItemMenu, 'contador'> & { perm: Permissao })[] = [
   { href: '/admin/produtos', icone: 'produtos', rotulo: 'Produtos e preços', grupo: 'Catálogo', perm: 'produtos' },
   { href: '/admin/marketing', icone: 'marketing', rotulo: 'Promoções e cupons', grupo: 'Catálogo', perm: 'marketing' },
   { href: '/admin/avaliacoes', icone: 'avaliacoes', rotulo: 'Avaliações', grupo: 'Catálogo', perm: 'avaliacoes' },
+  { href: '/admin/entrada-nota', icone: 'notas', rotulo: 'Entrada de nota (XML)', grupo: 'Suprimentos', perm: 'notasEntrada' },
   { href: '/admin/compras', icone: 'compras', rotulo: 'Compras', grupo: 'Suprimentos', perm: 'compras' },
   { href: '/admin/cotacoes', icone: 'cotacoes', rotulo: 'Cotações', grupo: 'Suprimentos', perm: 'compras' },
   { href: '/admin/fornecedores', icone: 'fornecedores', rotulo: 'Fornecedores', grupo: 'Suprimentos', perm: 'compras' },
